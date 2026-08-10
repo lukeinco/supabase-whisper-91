@@ -154,6 +154,7 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
       <div className="flex w-full max-w-full items-center gap-2 rounded-[6px] border border-border bg-card px-3 py-2">
         <input
           ref={inputRef}
+          data-capture-input=""
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value)}

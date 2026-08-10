@@ -94,6 +94,11 @@
   color: var(--muted);
 }
 
+/* one-second row flash after jumping from search */
+.search-flash {
+  background-color: color-mix(in srgb, var(--muted) 14%, transparent);
+}
+
 /* react-grid-layout base styles (no shadows, no glow) */
 .react-grid-layout {
   position: relative;
