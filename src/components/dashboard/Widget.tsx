@@ -19,6 +19,7 @@ export function Widget({
         }`}
       >
         <span className="label-mono">{label}</span>
+        {headerRight}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
     </section>
