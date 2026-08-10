@@ -65,7 +65,7 @@ function Index() {
 
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden">
-      <DashboardHeader weather="— · —" />
+      <DashboardHeader />
       <CaptureBar secret={secret} />
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
         <DesktopGrid secret={secret} onUnauthorized={onUnauthorized} />
