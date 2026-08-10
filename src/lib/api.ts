@@ -1,27 +1,23 @@
-// Backend endpoint for the gated app_state store.
-// Defaults to the Supabase Edge Function so the backend stays independent of
-// where the frontend is hosted; falls back to the local server route until the
-// function is deployed.
+// All backend access goes through Supabase Edge Functions.
+// The browser never touches PostgREST: every table has RLS on with zero
+// policies and no grants to anon/authenticated. The #k= secret is sent as the
+// x-app-secret header and the functions hold the service role key server-side.
+
 const SUPABASE_URL =
-  (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ?? "";
-export const LAYOUT_ENDPOINT =
-  (import.meta.env["VITE_APP_STATE_URL"] as string | undefined) ??
-  (SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/app-state` : "/api/public/layout");
+  ((import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ??
+    "https://druggbmhwfqwomyjvpgc.supabase.co").replace(/\/$/, "");
+
+export const FUNCTIONS_BASE = `${SUPABASE_URL}/functions/v1`;
 
 export class UnauthorizedError extends Error {
-
   constructor() {
     super("Unauthorized");
     this.name = "UnauthorizedError";
   }
 }
 
-async function request<T>(
-  path: string,
-  secret: string,
-  init?: RequestInit,
-): Promise<T> {
-  const res = await fetch(path, {
+async function call<T>(path: string, secret: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${FUNCTIONS_BASE}/${path}`, {
     ...init,
     headers: {
       "content-type": "application/json",
@@ -33,6 +29,7 @@ async function request<T>(
   if (!res.ok) {
     throw new Error(`Request failed [${res.status}]: ${await res.text()}`);
   }
+  if (res.status === 204) return null as T;
   return (await res.json()) as T;
 }
 
@@ -46,14 +43,34 @@ export type WidgetLayout = {
   minH?: number;
 };
 
-export function getLayout(secret: string) {
-  return request<{ layout: WidgetLayout[] | null }>(LAYOUT_ENDPOINT, secret);
+export type DashboardState = {
+  layout?: WidgetLayout[] | null;
+  [key: string]: unknown;
+} | null;
+
+/** GET /functions/v1/state — everything the dashboard renders, in one call. */
+export function getState(secret: string) {
+  return call<DashboardState>("state", secret, { method: "GET" });
 }
 
-export function saveLayout(secret: string, layout: WidgetLayout[]) {
-  return request<{ ok: true; persisted?: boolean }>(LAYOUT_ENDPOINT, secret, {
-    method: "PUT",
-    body: JSON.stringify({ layout }),
+/** POST /functions/v1/mutate — every write. */
+export function mutate<T = unknown>(
+  secret: string,
+  entity: string,
+  action: string,
+  payload: unknown = {},
+) {
+  return call<T>("mutate", secret, {
+    method: "POST",
+    body: JSON.stringify({ entity, action, payload }),
   });
 }
 
+export async function getLayout(secret: string): Promise<{ layout: WidgetLayout[] | null }> {
+  const state = await getState(secret);
+  return { layout: state?.layout ?? null };
+}
+
+export function saveLayout(secret: string, layout: WidgetLayout[]) {
+  return mutate(secret, "layout", "edited", { layout });
+}
