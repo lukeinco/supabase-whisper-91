@@ -20,7 +20,11 @@ export function useAppSecret() {
   useEffect(() => {
     setSecret(readSecretFromHash());
     setReady(true);
+    const onHash = () => setSecret(readSecretFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
 
   return { secret, ready, clear: () => setSecret(null) };
 }
