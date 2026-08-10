@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { DashboardHeader } from "./DashboardHeader";
 import { WeatherLine } from "./WeatherLine";
 import { CaptureBar } from "./CaptureBar";
@@ -13,6 +13,9 @@ import { BuyList } from "./BuyList";
 import { RoutineList } from "./RoutineList";
 import { WaitingOn } from "./WaitingOn";
 import { Scratchpad } from "./Scratchpad";
+import { NextReminder } from "./NextReminder";
+import { ReviewQueue } from "./ReviewQueue";
+import { useReminderHub } from "./useReminderHub";
 
 const TAB_WIDGETS: Record<TabId, string[]> = {
   today: ["today", "routine"],
@@ -24,13 +27,36 @@ const TAB_WIDGETS: Record<TabId, string[]> = {
 
 export function MobileShell({ secret }: { secret: string }) {
   const [tab, setTab] = useState<TabId>("today");
+  const [queueOpen, setQueueOpen] = useState(false);
+  const hub = useReminderHub(secret);
   const ids = TAB_WIDGETS[tab];
+  const swipeStart = useRef<number | null>(null);
 
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden">
       <DashboardHeader showWeather={false} />
-      <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
-        {tab === "today" ? <WeatherLine className="mb-3" /> : null}
+      <main
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4"
+        onTouchStart={(e) => {
+          swipeStart.current = tab === "do" ? (e.touches[0]?.clientY ?? null) : null;
+        }}
+        onTouchEnd={(e) => {
+          const from = swipeStart.current;
+          swipeStart.current = null;
+          const to = e.changedTouches[0]?.clientY;
+          if (from != null && to != null && from - to > 80 && from > window.innerHeight * 0.6) {
+            setQueueOpen(true);
+          }
+        }}
+      >
+        {tab === "today" ? (
+          <>
+            <WeatherLine className="mb-3" />
+            <div className="-mx-4">
+              <NextReminder reminder={hub.next} />
+            </div>
+          </>
+        ) : null}
         <div className="flex flex-col gap-4">
           {[...WIDGETS].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)).filter((w) => ids.includes(w.id)).map((w) => (
             <Widget key={w.id} label={w.label}>
@@ -54,11 +80,25 @@ export function MobileShell({ secret }: { secret: string }) {
             </Widget>
           ))}
         </div>
+        {tab === "do" ? (
+          <button
+            type="button"
+            onClick={() => setQueueOpen(true)}
+            className="mt-4 w-full rounded-[6px] border border-muted/25 py-2 font-mono text-[11px] text-muted"
+          >
+            review queue · {hub.count}
+          </button>
+        ) : null}
       </main>
       <div className="shrink-0">
         <CaptureBar secret={secret} />
-        <TabBar active={tab} onChange={setTab} badges={{ do: false, budget: false }} />
+        <TabBar
+          active={tab}
+          onChange={setTab}
+          badges={{ do: hub.count > 0, budget: false }}
+        />
       </div>
+      <ReviewQueue hub={hub} open={queueOpen} onClose={() => setQueueOpen(false)} />
     </div>
   );
 }
