@@ -134,3 +134,18 @@
   opacity: 0.6;
 }
 
+
+@keyframes hop-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.hop-in {
+  animation: hop-in 200ms ease-out;
+}

@@ -5,6 +5,7 @@ import { TabBar, type TabId } from "./TabBar";
 import { Widget } from "./Widget";
 import { EmptyLine } from "./primitives";
 import { WIDGETS } from "./widgets";
+import { TodoList } from "./TodoList";
 
 const TAB_WIDGETS: Record<TabId, string[]> = {
   today: ["today", "waiting-on"],
@@ -25,7 +26,11 @@ export function MobileShell({ secret }: { secret: string }) {
         <div className="flex flex-col gap-4">
           {WIDGETS.filter((w) => ids.includes(w.id)).map((w) => (
             <Widget key={w.id} label={w.label}>
-              <EmptyLine>{w.empty}</EmptyLine>
+              {w.id === "to-do" ? (
+                <TodoList secret={secret} />
+              ) : (
+                <EmptyLine>{w.empty}</EmptyLine>
+              )}
             </Widget>
           ))}
         </div>
