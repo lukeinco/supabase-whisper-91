@@ -9,7 +9,7 @@ export const SUPABASE_URL =
   (import.meta.env['VITE_SUPABASE_URL'] as string | undefined) ??
   "https://druggbmhwfqwomyjvpgc.supabase.co";
 
-const PUBLISHABLE_KEY_FALLBACK = "";
+const PUBLISHABLE_KEY_FALLBACK = "sb_publishable_Pyl6efxrB4pZzKwzwI2YIw_PAc-i4ds";
 
 export const SUPABASE_PUBLISHABLE_KEY =
   ((import.meta.env['VITE_SUPABASE_PUBLISHABLE_KEY'] ??
