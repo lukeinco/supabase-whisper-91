@@ -269,9 +269,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       {dueNow.length > 0 ? (
         <div className="mb-3">
           <p className="px-4 py-2 font-mono text-[11px] text-accent">due now</p>
-          {dueNow.map((t) => (
-            <Row key={t.id} t={t} pinned />
-          ))}
+          {dueNow.map((t) => row(t, true))}
         </div>
       ) : null}
 
@@ -283,8 +281,9 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
               {items.length === 0 ? (
                 <p className="px-3 pb-2 font-mono text-[11px] text-muted">empty</p>
               ) : (
-                items.map((t) => <Row key={t.id} t={t} pinned={false} />)
+                items.map((t) => row(t, false))
               )}
+
             </div>
           </div>
         ))}
