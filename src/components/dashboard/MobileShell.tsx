@@ -7,6 +7,7 @@ import { Widget } from "./Widget";
 import { EmptyLine } from "./primitives";
 import { WIDGETS } from "./widgets";
 import { TodoList } from "./TodoList";
+import { CalendarToday } from "./CalendarToday";
 import { BuyList } from "./BuyList";
 import { RoutineList } from "./RoutineList";
 import { WaitingOn } from "./WaitingOn";
@@ -32,7 +33,9 @@ export function MobileShell({ secret }: { secret: string }) {
         <div className="flex flex-col gap-4">
           {[...WIDGETS].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)).filter((w) => ids.includes(w.id)).map((w) => (
             <Widget key={w.id} label={w.label}>
-              {w.id === "to-do" ? (
+              {w.id === "today" ? (
+                <CalendarToday secret={secret} showLabel={false} />
+              ) : w.id === "to-do" ? (
                 <TodoList secret={secret} />
               ) : w.id === "to-buy" ? (
                 <BuyList secret={secret} />

@@ -10,10 +10,12 @@ import { useDenverToday } from "@/lib/denver";
 export function CalendarToday({
   secret,
   dense = false,
+  showLabel = true,
   onUnauthorized,
 }: {
   secret: string;
   dense?: boolean;
+  showLabel?: boolean;
   onUnauthorized?: () => void;
 }) {
   const today = useDenverToday();
@@ -39,9 +41,11 @@ export function CalendarToday({
 
   return (
     <div className="w-full max-w-full">
-      <div className="px-4 pt-3 pb-1">
-        <span className="label-mono">today</span>
-      </div>
+      {showLabel ? (
+        <div className="px-4 pt-3 pb-1">
+          <span className="label-mono">today</span>
+        </div>
+      ) : null}
       <ul className="w-full">
         {events.map((e, i) => (
           <li

@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { getState, mutate } from "@/lib/api";
+import { EventComposer } from "./EventComposer";
 import {
   BUY_CATEGORIES,
   formatChipDate,
@@ -52,6 +53,7 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
   const [catOverride, setCatOverride] = useState<string | null>(null);
   const [cycleIndex, setCycleIndex] = useState(0);
   const [open, setOpen] = useState(false);
+  const [composerOpen, setComposerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const budgetCategories = useBudgetCategories(secret ?? null);
@@ -230,12 +232,13 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
         <button
           type="button"
           aria-label="Add event"
-          onClick={() => toast("events — coming soon", { duration: 2000 })}
+          onClick={() => setComposerOpen(true)}
           className="shrink-0 text-muted transition-colors hover:text-foreground"
         >
           <Plus size={18} strokeWidth={1.5} />
         </button>
       </div>
+      {composerOpen ? <EventComposer onClose={() => setComposerOpen(false)} /> : null}
     </div>
   );
 }
