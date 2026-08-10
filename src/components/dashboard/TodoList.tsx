@@ -291,3 +291,113 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     </div>
   );
 }
+
+type RowProps = {
+  t: Todo;
+  pinned: boolean;
+  today: string;
+  rowH: string;
+  textSize: string;
+  dragging: boolean;
+  editing: boolean;
+  hop: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onRename: (value: string) => void;
+  onComplete: () => void;
+  onRemove: () => void;
+  onDue: (ymd: string | null) => void;
+  onPointerDown: (e: React.PointerEvent) => void;
+  onPointerMove: (e: React.PointerEvent) => void;
+  onPointerUp: () => void;
+};
+
+function TodoRow({
+  t,
+  pinned,
+  today,
+  rowH,
+  textSize,
+  dragging,
+  editing,
+  hop,
+  onEdit,
+  onCancelEdit,
+  onRename,
+  onComplete,
+  onRemove,
+  onDue,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: RowProps) {
+  const label = t.due_ymd ? dueLabel(t.due_ymd, today) : null;
+  return (
+    <div
+      data-todo-id={t.id}
+      data-folder-id={t.folder_id ?? UNFILED.id}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4 ${
+        dragging ? "opacity-60" : ""
+      } ${hop ? "hop-in" : ""}`}
+      style={{ touchAction: dragging ? "none" : undefined }}
+    >
+      <button
+        type="button"
+        aria-label="complete"
+        onClick={onComplete}
+        className="size-[13px] shrink-0 rounded-[2px] border border-muted/50"
+      />
+      {editing ? (
+        <input
+          autoFocus
+          defaultValue={t.title}
+          onBlur={(e) => onRename(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onRename(e.currentTarget.value);
+            if (e.key === "Escape") onCancelEdit();
+          }}
+          className={`min-w-0 flex-1 bg-transparent font-sans ${textSize} text-foreground outline-none`}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={onEdit}
+          className={`min-w-0 flex-1 truncate text-left font-sans ${textSize} text-foreground`}
+        >
+          {t.title}
+        </button>
+      )}
+      {label ? (
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className={`shrink-0 font-mono text-[11px] ${pinned ? "text-accent" : "text-muted"}`}
+            >
+              {label}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={t.due_ymd ? ymdToDate(t.due_ymd) : undefined}
+              onSelect={(d) => onDue(d ? dateToYMD(d) : null)}
+            />
+          </PopoverContent>
+        </Popover>
+      ) : null}
+      <button
+        type="button"
+        aria-label="delete"
+        onClick={onRemove}
+        className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+      >
+        ×
+      </button>
+    </div>
+  );
+}
