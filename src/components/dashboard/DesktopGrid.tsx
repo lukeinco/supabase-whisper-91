@@ -87,9 +87,11 @@ export function DesktopGrid({
               <BudgetView secret={secret} dense onUnauthorized={onUnauthorized} />
             ) : w.id === "today" ? (
               <>
-                <div className="pt-3">
-                  <NextReminder reminder={hub.next} />
-                </div>
+                {hub.next ? (
+                  <div className="pt-3">
+                    <NextReminder reminder={hub.next} />
+                  </div>
+                ) : null}
                 <CalendarToday secret={secret} dense showLabel={false} onUnauthorized={onUnauthorized} />
               </>
             ) : w.id === "to-do" ? (
