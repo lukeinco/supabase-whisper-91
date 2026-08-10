@@ -1,4 +1,15 @@
+// Backend endpoint for the gated app_state store.
+// Defaults to the Supabase Edge Function so the backend stays independent of
+// where the frontend is hosted; falls back to the local server route until the
+// function is deployed.
+const SUPABASE_URL =
+  (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ?? "";
+export const LAYOUT_ENDPOINT =
+  (import.meta.env["VITE_APP_STATE_URL"] as string | undefined) ??
+  (SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/app-state` : "/api/public/layout");
+
 export class UnauthorizedError extends Error {
+
   constructor() {
     super("Unauthorized");
     this.name = "UnauthorizedError";
