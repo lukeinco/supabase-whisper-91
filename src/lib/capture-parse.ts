@@ -140,20 +140,20 @@ export function parseDate(
 }
 
 export function formatChipDate(d: Date) {
-  return d.toLocaleDateString("en-US", {
+  const parts = d.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
   });
+  // "Thu, Jan 27, 2028" -> "Thu Jan 27, 2028"
+  return parts.replace(",", "");
 }
 
 export function formatToastDate(d: Date) {
-  return d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+  return d
+    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+    .replace(",", "");
 }
 
 export function parseCapture(
