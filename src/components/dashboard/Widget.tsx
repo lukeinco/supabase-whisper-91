@@ -4,10 +4,12 @@ export function Widget({
   label,
   children,
   dragHandle = false,
+  headerRight,
 }: {
   label: string;
   children: ReactNode;
   dragHandle?: boolean;
+  headerRight?: ReactNode;
 }) {
   return (
     <section className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[6px] bg-card">
@@ -17,6 +19,7 @@ export function Widget({
         }`}
       >
         <span className="label-mono">{label}</span>
+        {headerRight}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
     </section>
