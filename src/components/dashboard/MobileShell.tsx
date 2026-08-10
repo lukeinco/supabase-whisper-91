@@ -14,7 +14,7 @@ const TAB_WIDGETS: Record<TabId, string[]> = {
   notes: ["scratchpad"],
 };
 
-export function MobileShell() {
+export function MobileShell({ secret }: { secret: string }) {
   const [tab, setTab] = useState<TabId>("today");
   const ids = TAB_WIDGETS[tab];
 
@@ -31,7 +31,7 @@ export function MobileShell() {
         </div>
       </main>
       <div className="shrink-0">
-        <CaptureBar />
+        <CaptureBar secret={secret} />
         <TabBar active={tab} onChange={setTab} badges={{ do: false, budget: false }} />
       </div>
     </div>
