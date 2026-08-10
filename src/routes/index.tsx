@@ -6,6 +6,10 @@ import { MobileShell } from "@/components/dashboard/MobileShell";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CaptureBar } from "@/components/dashboard/CaptureBar";
 import { DesktopGrid } from "@/components/dashboard/DesktopGrid";
+import { WeatherLine } from "@/components/dashboard/WeatherLine";
+import { AskClaude } from "@/components/dashboard/AskClaude";
+import { CommandOverlay, type OverlayMode } from "@/components/dashboard/CommandOverlay";
+import { useShortcuts } from "@/components/dashboard/useShortcuts";
 import { getState, UnauthorizedError } from "@/lib/api";
 
 
@@ -63,13 +67,40 @@ function Index() {
 
   if (isMobile) return <MobileShell secret={secret} />;
 
+  return <DesktopShell secret={secret} onUnauthorized={onUnauthorized} />;
+}
+
+function DesktopShell({
+  secret,
+  onUnauthorized,
+}: {
+  secret: string;
+  onUnauthorized: () => void;
+}) {
+  const [overlay, setOverlay] = useState<OverlayMode>(null);
+
+  useShortcuts({
+    onSearch: useCallback(() => setOverlay("search"), []),
+    onHelp: useCallback(() => setOverlay("help"), []),
+    onQueue: useCallback(() => window.dispatchEvent(new Event("open-review-queue")), []),
+    onEscape: useCallback(() => setOverlay(null), []),
+  });
+
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden">
-      <DashboardHeader />
+      <DashboardHeader
+        right={
+          <div className="flex items-center gap-3">
+            <WeatherLine />
+            <AskClaude secret={secret} />
+          </div>
+        }
+      />
       <CaptureBar secret={secret} />
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
         <DesktopGrid secret={secret} onUnauthorized={onUnauthorized} />
       </main>
+      <CommandOverlay secret={secret} mode={overlay} onClose={() => setOverlay(null)} />
     </div>
   );
 }

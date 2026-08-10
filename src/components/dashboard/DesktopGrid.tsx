@@ -30,6 +30,12 @@ export function DesktopGrid({
   const hub = useReminderHub(secret, onUnauthorized);
 
   useEffect(() => {
+    const open = () => setQueueOpen(true);
+    window.addEventListener("open-review-queue", open);
+    return () => window.removeEventListener("open-review-queue", open);
+  }, []);
+
+  useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
