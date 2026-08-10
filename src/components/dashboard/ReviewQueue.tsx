@@ -136,7 +136,7 @@ export function ReviewQueue({
             className="flex min-h-0 flex-1 select-none flex-col items-center justify-center px-6 text-center"
           >
             <p className="font-mono text-[11px] text-muted">{card.kind}</p>
-            <h2 className="mt-4 font-serif text-[28px] leading-tight text-foreground">
+            <h2 className="mt-4 font-display text-[28px] leading-tight text-foreground">
               {card.title}
             </h2>
             {card.body ? (
