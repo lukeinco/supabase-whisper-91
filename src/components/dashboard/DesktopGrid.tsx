@@ -62,21 +62,25 @@ export function DesktopGrid({
     [loading],
   );
 
-  function persist(next: WidgetLayout[]) {
-    const clean = next.map(({ i, x, y, w, h, minW, minH }) => ({
-      i,
-      x,
-      y,
-      w,
-      h,
-      minW,
-      minH,
-    }));
+  function persist(next: readonly { i: string; x: number; y: number; w: number; h: number }[]) {
+    const clean: WidgetLayout[] = next.map((l) => {
+      const def = DEFAULT_LAYOUT.find((d) => d.i === l.i);
+      return {
+        i: l.i,
+        x: l.x,
+        y: l.y,
+        w: l.w,
+        h: l.h,
+        minW: def?.minW ?? 3,
+        minH: def?.minH ?? 4,
+      };
+    });
     setLayout(clean);
     saveLayout(secret, clean).catch((e: unknown) => {
       if (e instanceof UnauthorizedError) onUnauthorized();
     });
   }
+
 
   return (
     <div ref={containerRef} className="w-full">
