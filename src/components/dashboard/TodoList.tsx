@@ -232,80 +232,29 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   const rowH = dense ? "h-[34px]" : "h-[46px]";
   const textSize = dense ? "text-[14px]" : "text-[15px]";
 
-  function Row({ t, pinned }: { t: Todo; pinned: boolean }) {
-    const isEditing = editing === t.id;
-    const label = t.due_ymd ? dueLabel(t.due_ymd, today) : null;
-    return (
-      <div
-        data-todo-id={t.id}
-        data-folder-id={t.folder_id ?? UNFILED.id}
-        onPointerDown={(e) => !pinned && onPointerDown(e, t)}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4 ${
-          dragId === t.id ? "opacity-60" : ""
-        } ${pinned && hopIds.has(t.id) ? "hop-in" : ""}`}
-        style={{ touchAction: dragId === t.id ? "none" : undefined }}
-      >
-        <button
-          type="button"
-          aria-label="complete"
-          onClick={() => complete(t)}
-          className="size-[13px] shrink-0 rounded-[2px] border border-muted/50"
-        />
-        {isEditing ? (
-          <input
-            autoFocus
-            defaultValue={t.title}
-            onBlur={(e) => rename(t, e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") rename(t, e.currentTarget.value);
-              if (e.key === "Escape") setEditing(null);
-            }}
-            className={`min-w-0 flex-1 bg-transparent font-sans ${textSize} text-foreground outline-none`}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(t.id)}
-            className={`min-w-0 flex-1 truncate text-left font-sans ${textSize} text-foreground`}
-          >
-            {t.title}
-          </button>
-        )}
-        {label ? (
-          <Popover>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className={`shrink-0 font-mono text-[11px] ${
-                  pinned ? "text-accent" : "text-muted"
-                }`}
-              >
-                {label}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={t.due_ymd ? ymdToDate(t.due_ymd) : undefined}
-                onSelect={(d) => setDue(t, d ? dateToYMD(d) : null)}
-              />
-            </PopoverContent>
-          </Popover>
-        ) : null}
-        <button
-          type="button"
-          aria-label="delete"
-          onClick={() => remove(t)}
-          className="shrink-0 font-mono text-[13px] text-muted opacity-40"
-        >
-          ×
-        </button>
-      </div>
-    );
-  }
+  const row = (t: Todo, pinned: boolean) => (
+    <TodoRow
+      key={t.id}
+      t={t}
+      pinned={pinned}
+      today={today}
+      rowH={rowH}
+      textSize={textSize}
+      dragging={dragId === t.id}
+      editing={editing === t.id}
+      onEdit={() => setEditing(t.id)}
+      onCancelEdit={() => setEditing(null)}
+      onRename={(v) => rename(t, v)}
+      onComplete={() => complete(t)}
+      onRemove={() => remove(t)}
+      onDue={(ymd) => setDue(t, ymd)}
+      onPointerDown={(e) => !pinned && onPointerDown(e, t)}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      hop={pinned && hopIds.has(t.id)}
+    />
+  );
+
 
   if (todos === null) {
     return <p className="px-4 py-3 font-mono text-[12px] text-muted">loading…</p>;
