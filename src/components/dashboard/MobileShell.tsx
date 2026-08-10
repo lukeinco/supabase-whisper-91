@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { DashboardHeader } from "./DashboardHeader";
 import { WeatherLine } from "./WeatherLine";
 import { CaptureBar } from "./CaptureBar";
@@ -16,6 +16,9 @@ import { Scratchpad } from "./Scratchpad";
 import { NextReminder } from "./NextReminder";
 import { ReviewQueue } from "./ReviewQueue";
 import { useReminderHub } from "./useReminderHub";
+import { AskClaude } from "./AskClaude";
+import { CommandOverlay, type OverlayMode } from "./CommandOverlay";
+import { useShortcuts } from "./useShortcuts";
 
 const TAB_WIDGETS: Record<TabId, string[]> = {
   today: ["today", "routine"],
@@ -31,6 +34,18 @@ export function MobileShell({ secret }: { secret: string }) {
   const hub = useReminderHub(secret);
   const ids = TAB_WIDGETS[tab];
   const swipeStart = useRef<number | null>(null);
+  const [overlay, setOverlay] = useState<OverlayMode>(null);
+
+  useShortcuts({
+    onSearch: useCallback(() => setOverlay("search"), []),
+    onHelp: useCallback(() => setOverlay("help"), []),
+    onQueue: useCallback(() => setQueueOpen(true), []),
+    onEscape: useCallback(() => {
+      setOverlay(null);
+      setQueueOpen(false);
+    }, []),
+    onTab: useCallback((t: TabId) => setTab(t), []),
+  });
 
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden">
@@ -80,6 +95,11 @@ export function MobileShell({ secret }: { secret: string }) {
             </Widget>
           ))}
         </div>
+        {tab === "notes" ? (
+          <div className="pt-4">
+            <AskClaude secret={secret} />
+          </div>
+        ) : null}
         {tab === "do" ? (
           <button
             type="button"
@@ -98,6 +118,12 @@ export function MobileShell({ secret }: { secret: string }) {
           badges={{ do: hub.count > 0, budget: false }}
         />
       </div>
+      <CommandOverlay
+        secret={secret}
+        mode={overlay}
+        onClose={() => setOverlay(null)}
+        onJump={(t) => setTab(t)}
+      />
       <ReviewQueue hub={hub} open={queueOpen} onClose={() => setQueueOpen(false)} />
     </div>
   );
