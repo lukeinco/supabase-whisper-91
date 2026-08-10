@@ -47,12 +47,13 @@ export type WidgetLayout = {
 };
 
 export function getLayout(secret: string) {
-  return request<{ layout: WidgetLayout[] | null }>("/api/public/layout", secret);
+  return request<{ layout: WidgetLayout[] | null }>(LAYOUT_ENDPOINT, secret);
 }
 
 export function saveLayout(secret: string, layout: WidgetLayout[]) {
-  return request<{ ok: true }>("/api/public/layout", secret, {
+  return request<{ ok: true; persisted?: boolean }>(LAYOUT_ENDPOINT, secret, {
     method: "PUT",
     body: JSON.stringify({ layout }),
   });
 }
+
