@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAppSecret } from "@/lib/app-secret";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileShell } from "@/components/dashboard/MobileShell";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { CaptureBar } from "@/components/dashboard/CaptureBar";
 import { DesktopGrid } from "@/components/dashboard/DesktopGrid";
+import { getState, UnauthorizedError } from "@/lib/api";
+
 
 export const Route = createFileRoute("/")({
   ssr: false,
