@@ -11,6 +11,9 @@ import { WaitingOn } from "./WaitingOn";
 import { Scratchpad } from "./Scratchpad";
 import { DEFAULT_LAYOUT, ROW_HEIGHT, WIDGETS } from "./widgets";
 import { getLayout, saveLayout, UnauthorizedError, type WidgetLayout } from "@/lib/api";
+import { NextReminder } from "./NextReminder";
+import { ReviewQueue } from "./ReviewQueue";
+import { useReminderHub } from "./useReminderHub";
 
 export function DesktopGrid({
   secret,
@@ -23,6 +26,8 @@ export function DesktopGrid({
   const [width, setWidth] = useState(1200);
   const [layout, setLayout] = useState<WidgetLayout[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const hub = useReminderHub(secret, onUnauthorized);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -61,13 +66,32 @@ export function DesktopGrid({
     () =>
       WIDGETS.map((w) => (
         <div key={w.id}>
-          <Widget label={w.label} dragHandle>
+          <Widget
+            label={w.label}
+            dragHandle
+            headerRight={
+              w.id === "today" ? (
+                <button
+                  type="button"
+                  onClick={() => setQueueOpen(true)}
+                  className="font-mono text-[11px] text-muted"
+                >
+                  review · {hub.count}
+                </button>
+              ) : undefined
+            }
+          >
             {loading ? (
               <LoadingLine />
             ) : w.id === "budget" ? (
               <BudgetView secret={secret} dense onUnauthorized={onUnauthorized} />
             ) : w.id === "today" ? (
-              <CalendarToday secret={secret} dense showLabel={false} onUnauthorized={onUnauthorized} />
+              <>
+                <div className="pt-3">
+                  <NextReminder reminder={hub.next} />
+                </div>
+                <CalendarToday secret={secret} dense showLabel={false} onUnauthorized={onUnauthorized} />
+              </>
             ) : w.id === "to-do" ? (
               <TodoList secret={secret} dense onUnauthorized={onUnauthorized} />
             ) : w.id === "to-buy" ? (
@@ -84,7 +108,7 @@ export function DesktopGrid({
           </Widget>
         </div>
       )),
-    [loading, secret, onUnauthorized],
+    [loading, secret, onUnauthorized, hub.next, hub.count],
   );
 
   function persist(next: readonly { i: string; x: number; y: number; w: number; h: number }[]) {
@@ -128,6 +152,7 @@ export function DesktopGrid({
       ) : (
         <p className="font-mono text-[12px] text-muted">loading…</p>
       )}
+      <ReviewQueue hub={hub} open={queueOpen} onClose={() => setQueueOpen(false)} />
     </div>
   );
 }
