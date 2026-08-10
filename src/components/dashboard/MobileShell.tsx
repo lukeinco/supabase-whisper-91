@@ -7,13 +7,16 @@ import { EmptyLine } from "./primitives";
 import { WIDGETS } from "./widgets";
 import { TodoList } from "./TodoList";
 import { BuyList } from "./BuyList";
+import { RoutineList } from "./RoutineList";
+import { WaitingOn } from "./WaitingOn";
+import { Scratchpad } from "./Scratchpad";
 
 const TAB_WIDGETS: Record<TabId, string[]> = {
-  today: ["today", "waiting-on"],
+  today: ["today", "routine"],
   do: ["to-do"],
   buy: ["to-buy"],
   budget: ["budget"],
-  notes: ["scratchpad"],
+  notes: ["scratchpad", "waiting-on"],
 };
 
 export function MobileShell({ secret }: { secret: string }) {
@@ -25,12 +28,18 @@ export function MobileShell({ secret }: { secret: string }) {
       <DashboardHeader weather="— · —" />
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
         <div className="flex flex-col gap-4">
-          {WIDGETS.filter((w) => ids.includes(w.id)).map((w) => (
+          {[...WIDGETS].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)).filter((w) => ids.includes(w.id)).map((w) => (
             <Widget key={w.id} label={w.label}>
               {w.id === "to-do" ? (
                 <TodoList secret={secret} />
               ) : w.id === "to-buy" ? (
                 <BuyList secret={secret} />
+              ) : w.id === "routine" ? (
+                <RoutineList secret={secret} />
+              ) : w.id === "waiting-on" ? (
+                <WaitingOn secret={secret} />
+              ) : w.id === "scratchpad" ? (
+                <Scratchpad secret={secret} />
               ) : (
                 <EmptyLine>{w.empty}</EmptyLine>
               )}

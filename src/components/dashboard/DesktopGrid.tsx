@@ -4,6 +4,9 @@ import { Widget } from "./Widget";
 import { EmptyLine, LoadingLine } from "./primitives";
 import { TodoList } from "./TodoList";
 import { BuyList } from "./BuyList";
+import { RoutineList } from "./RoutineList";
+import { WaitingOn } from "./WaitingOn";
+import { Scratchpad } from "./Scratchpad";
 import { DEFAULT_LAYOUT, ROW_HEIGHT, WIDGETS } from "./widgets";
 import { getLayout, saveLayout, UnauthorizedError, type WidgetLayout } from "@/lib/api";
 
@@ -63,6 +66,12 @@ export function DesktopGrid({
               <TodoList secret={secret} dense onUnauthorized={onUnauthorized} />
             ) : w.id === "to-buy" ? (
               <BuyList secret={secret} dense onUnauthorized={onUnauthorized} />
+            ) : w.id === "routine" ? (
+              <RoutineList secret={secret} dense onUnauthorized={onUnauthorized} />
+            ) : w.id === "waiting-on" ? (
+              <WaitingOn secret={secret} dense onUnauthorized={onUnauthorized} />
+            ) : w.id === "scratchpad" ? (
+              <Scratchpad secret={secret} onUnauthorized={onUnauthorized} />
             ) : (
               <EmptyLine>{w.empty}</EmptyLine>
             )}
