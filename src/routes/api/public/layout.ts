@@ -3,12 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 
 const STATE_KEY = "dashboard.layout";
 
+// Interim fallback while the Supabase Edge Function (edge/app-state) is not yet
+// deployed. public.app_state has RLS on with zero policies and no grants to
+// anon/authenticated, so only the service role key can reach it.
 function supabaseServer() {
   const url =
     process.env["SUPABASE_URL"] ?? "https://druggbmhwfqwomyjvpgc.supabase.co";
-  const key =
-    process.env["SUPABASE_PUBLISHABLE_KEY"] ??
-    "sb_publishable_Pyl6efxrB4pZzKwzwI2YIw_PAc-i4ds";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!key) return null;
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: {
@@ -23,6 +25,7 @@ function supabaseServer() {
     },
   });
 }
+
 
 function authorized(request: Request): boolean {
   const expected = process.env["APP_SECRET"];
