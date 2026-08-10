@@ -3,12 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 
 const STATE_KEY = "dashboard.layout";
 
+// Interim fallback while the Supabase Edge Function (edge/app-state) is not yet
+// deployed. public.app_state has RLS on with zero policies and no grants to
+// anon/authenticated, so only the service role key can reach it.
 function supabaseServer() {
   const url =
     process.env["SUPABASE_URL"] ?? "https://druggbmhwfqwomyjvpgc.supabase.co";
-  const key =
-    process.env["SUPABASE_PUBLISHABLE_KEY"] ??
-    "sb_publishable_Pyl6efxrB4pZzKwzwI2YIw_PAc-i4ds";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!key) return null;
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: {
@@ -23,6 +25,7 @@ function supabaseServer() {
     },
   });
 }
+
 
 function authorized(request: Request): boolean {
   const expected = process.env["APP_SECRET"];
@@ -41,7 +44,9 @@ export const Route = createFileRoute("/api/public/layout")({
     handlers: {
       GET: async ({ request }) => {
         if (!authorized(request)) return new Response("Unauthorized", { status: 401 });
-        const { data, error } = await supabaseServer()
+        const db = supabaseServer();
+        if (!db) return Response.json({ layout: null });
+        const { data, error } = await db
           .from("app_state")
           .select("value")
           .eq("key", STATE_KEY)
@@ -58,15 +63,18 @@ export const Route = createFileRoute("/api/public/layout")({
         if (!Array.isArray(body.layout)) {
           return new Response("Invalid layout", { status: 400 });
         }
-        const { error } = await supabaseServer()
+        const db = supabaseServer();
+        if (!db) return Response.json({ ok: true, persisted: false });
+        const { error } = await db
           .from("app_state")
           .upsert({ key: STATE_KEY, value: body.layout }, { onConflict: "key" });
         if (error) {
           console.error("layout write failed:", error.message);
           return Response.json({ ok: true, persisted: false });
         }
-        return Response.json({ ok: true });
+        return Response.json({ ok: true, persisted: true });
       },
+
     },
   },
 });
