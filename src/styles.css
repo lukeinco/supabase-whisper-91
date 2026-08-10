@@ -149,3 +149,19 @@
 .hop-in {
   animation: hop-in 200ms ease-out;
 }
+
+@keyframes slide-row {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 30px;
+    opacity: 1;
+  }
+}
+
+.slide-row {
+  animation: slide-row 160ms ease-out;
+  overflow: hidden;
+}

@@ -6,6 +6,7 @@ import { Widget } from "./Widget";
 import { EmptyLine } from "./primitives";
 import { WIDGETS } from "./widgets";
 import { TodoList } from "./TodoList";
+import { BuyList } from "./BuyList";
 
 const TAB_WIDGETS: Record<TabId, string[]> = {
   today: ["today", "waiting-on"],
@@ -28,6 +29,8 @@ export function MobileShell({ secret }: { secret: string }) {
             <Widget key={w.id} label={w.label}>
               {w.id === "to-do" ? (
                 <TodoList secret={secret} />
+              ) : w.id === "to-buy" ? (
+                <BuyList secret={secret} />
               ) : (
                 <EmptyLine>{w.empty}</EmptyLine>
               )}

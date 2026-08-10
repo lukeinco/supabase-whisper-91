@@ -3,6 +3,7 @@ import GridLayout from "react-grid-layout";
 import { Widget } from "./Widget";
 import { EmptyLine, LoadingLine } from "./primitives";
 import { TodoList } from "./TodoList";
+import { BuyList } from "./BuyList";
 import { DEFAULT_LAYOUT, ROW_HEIGHT, WIDGETS } from "./widgets";
 import { getLayout, saveLayout, UnauthorizedError, type WidgetLayout } from "@/lib/api";
 
@@ -60,6 +61,8 @@ export function DesktopGrid({
               <LoadingLine />
             ) : w.id === "to-do" ? (
               <TodoList secret={secret} dense onUnauthorized={onUnauthorized} />
+            ) : w.id === "to-buy" ? (
+              <BuyList secret={secret} dense onUnauthorized={onUnauthorized} />
             ) : (
               <EmptyLine>{w.empty}</EmptyLine>
             )}
