@@ -3,6 +3,7 @@ import GridLayout from "react-grid-layout";
 import { Widget } from "./Widget";
 import { EmptyLine, LoadingLine } from "./primitives";
 import { TodoList } from "./TodoList";
+import { CalendarToday } from "./CalendarToday";
 import { BuyList } from "./BuyList";
 import { RoutineList } from "./RoutineList";
 import { WaitingOn } from "./WaitingOn";
@@ -62,6 +63,8 @@ export function DesktopGrid({
           <Widget label={w.label} dragHandle>
             {loading ? (
               <LoadingLine />
+            ) : w.id === "today" ? (
+              <CalendarToday secret={secret} dense showLabel={false} onUnauthorized={onUnauthorized} />
             ) : w.id === "to-do" ? (
               <TodoList secret={secret} dense onUnauthorized={onUnauthorized} />
             ) : w.id === "to-buy" ? (

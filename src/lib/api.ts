@@ -74,3 +74,17 @@ export async function getLayout(secret: string): Promise<{ layout: WidgetLayout[
 export function saveLayout(secret: string, layout: WidgetLayout[]) {
   return mutate(secret, "layout", "edited", { layout });
 }
+
+/**
+ * GET /functions/v1/calendar — today's events in America/Denver.
+ * Returns null when the function is not deployed or errors: the UI renders
+ * nothing rather than an error state.
+ */
+export async function getCalendar(secret: string): Promise<{ events: unknown[] } | null> {
+  try {
+    return await call<{ events: unknown[] }>("calendar", secret, { method: "GET" });
+  } catch (e) {
+    if (e instanceof UnauthorizedError) throw e;
+    return null;
+  }
+}
