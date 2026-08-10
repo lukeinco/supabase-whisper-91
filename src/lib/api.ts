@@ -1,0 +1,47 @@
+export class UnauthorizedError extends Error {
+  constructor() {
+    super("Unauthorized");
+    this.name = "UnauthorizedError";
+  }
+}
+
+async function request<T>(
+  path: string,
+  secret: string,
+  init?: RequestInit,
+): Promise<T> {
+  const res = await fetch(path, {
+    ...init,
+    headers: {
+      "content-type": "application/json",
+      "x-app-secret": secret,
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (res.status === 401) throw new UnauthorizedError();
+  if (!res.ok) {
+    throw new Error(`Request failed [${res.status}]: ${await res.text()}`);
+  }
+  return (await res.json()) as T;
+}
+
+export type WidgetLayout = {
+  i: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+};
+
+export function getLayout(secret: string) {
+  return request<{ layout: WidgetLayout[] | null }>("/api/public/layout", secret);
+}
+
+export function saveLayout(secret: string, layout: WidgetLayout[]) {
+  return request<{ ok: true }>("/api/public/layout", secret, {
+    method: "PUT",
+    body: JSON.stringify({ layout }),
+  });
+}
