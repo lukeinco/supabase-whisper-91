@@ -4,10 +4,12 @@ export function Widget({
   label,
   children,
   dragHandle = false,
+  headerRight,
 }: {
   label: string;
   children: ReactNode;
   dragHandle?: boolean;
+  headerRight?: ReactNode;
 }) {
   return (
     <section className="flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[6px] bg-card">
