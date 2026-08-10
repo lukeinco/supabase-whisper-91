@@ -1,0 +1,104 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import GridLayout from "react-grid-layout";
+import { Widget } from "./Widget";
+import { EmptyLine, LoadingLine } from "./primitives";
+import { DEFAULT_LAYOUT, ROW_HEIGHT, WIDGETS } from "./widgets";
+import { getLayout, saveLayout, UnauthorizedError, type WidgetLayout } from "@/lib/api";
+
+export function DesktopGrid({
+  secret,
+  onUnauthorized,
+}: {
+  secret: string;
+  onUnauthorized: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(1200);
+  const [layout, setLayout] = useState<WidgetLayout[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    setWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getLayout(secret)
+      .then(({ layout: saved }) => {
+        if (!active) return;
+        setLayout(saved && saved.length ? saved : DEFAULT_LAYOUT);
+        setLoading(false);
+      })
+      .catch((e: unknown) => {
+        if (!active) return;
+        if (e instanceof UnauthorizedError) {
+          onUnauthorized();
+          return;
+        }
+        setLayout(DEFAULT_LAYOUT);
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [secret, onUnauthorized]);
+
+  const children = useMemo(
+    () =>
+      WIDGETS.map((w) => (
+        <div key={w.id}>
+          <Widget label={w.label} dragHandle>
+            {loading ? <LoadingLine /> : <EmptyLine>{w.empty}</EmptyLine>}
+          </Widget>
+        </div>
+      )),
+    [loading],
+  );
+
+  function persist(next: WidgetLayout[]) {
+    const clean = next.map(({ i, x, y, w, h, minW, minH }) => ({
+      i,
+      x,
+      y,
+      w,
+      h,
+      minW,
+      minH,
+    }));
+    setLayout(clean);
+    saveLayout(secret, clean).catch((e: unknown) => {
+      if (e instanceof UnauthorizedError) onUnauthorized();
+    });
+  }
+
+  return (
+    <div ref={containerRef} className="w-full">
+      {layout ? (
+        <GridLayout
+          className="layout"
+          layout={layout}
+          cols={12}
+          rowHeight={ROW_HEIGHT}
+          width={width}
+          margin={[12, 12]}
+          containerPadding={[0, 0]}
+          draggableHandle=".widget-drag-handle"
+          resizeHandles={["se"]}
+          onDragStop={(l) => persist(l as WidgetLayout[])}
+          onResizeStop={(l) => persist(l as WidgetLayout[])}
+        >
+          {children}
+        </GridLayout>
+      ) : (
+        <p className="font-mono text-[12px] text-muted">loading…</p>
+      )}
+    </div>
+  );
+}
