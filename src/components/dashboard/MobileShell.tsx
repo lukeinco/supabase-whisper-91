@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DashboardHeader } from "./DashboardHeader";
+import { WeatherLine } from "./WeatherLine";
 import { CaptureBar } from "./CaptureBar";
 import { TabBar, type TabId } from "./TabBar";
 import { Widget } from "./Widget";
@@ -25,8 +26,9 @@ export function MobileShell({ secret }: { secret: string }) {
 
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden">
-      <DashboardHeader weather="— · —" />
+      <DashboardHeader showWeather={false} />
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
+        {tab === "today" ? <WeatherLine className="mb-3" /> : null}
         <div className="flex flex-col gap-4">
           {[...WIDGETS].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)).filter((w) => ids.includes(w.id)).map((w) => (
             <Widget key={w.id} label={w.label}>
