@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import GridLayout from "react-grid-layout";
 import { Widget } from "./Widget";
 import { EmptyLine, LoadingLine } from "./primitives";
+import { TodoList } from "./TodoList";
 import { DEFAULT_LAYOUT, ROW_HEIGHT, WIDGETS } from "./widgets";
 import { getLayout, saveLayout, UnauthorizedError, type WidgetLayout } from "@/lib/api";
 
@@ -55,11 +56,17 @@ export function DesktopGrid({
       WIDGETS.map((w) => (
         <div key={w.id}>
           <Widget label={w.label} dragHandle>
-            {loading ? <LoadingLine /> : <EmptyLine>{w.empty}</EmptyLine>}
+            {loading ? (
+              <LoadingLine />
+            ) : w.id === "to-do" ? (
+              <TodoList secret={secret} dense onUnauthorized={onUnauthorized} />
+            ) : (
+              <EmptyLine>{w.empty}</EmptyLine>
+            )}
           </Widget>
         </div>
       )),
-    [loading],
+    [loading, secret, onUnauthorized],
   );
 
   function persist(next: readonly { i: string; x: number; y: number; w: number; h: number }[]) {
