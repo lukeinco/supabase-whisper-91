@@ -76,9 +76,9 @@ export function parseRelativeWeekday(
   );
   const m = re.exec(text);
   if (!m) return null;
-  const nRaw = m[1].toLowerCase();
+  const nRaw = (m[1] ?? "").toLowerCase();
   const n = /^\d+$/.test(nRaw) ? parseInt(nRaw, 10) : (NUMBER_WORDS[nRaw] ?? 1);
-  const target = WEEKDAYS.indexOf(m[2].toLowerCase());
+  const target = WEEKDAYS.indexOf((m[2] ?? "").toLowerCase());
   if (n < 1 || target < 0) return null;
   const d = new Date(ref);
   let delta = (target - d.getDay() + 7) % 7;
@@ -98,9 +98,9 @@ export function parseOrdinalWeekdayOfMonth(
   );
   const m = re.exec(text);
   if (!m) return null;
-  const ord = ORDINALS[m[1].toLowerCase()];
-  const weekday = WEEKDAYS.indexOf(m[2].toLowerCase());
-  const month = MONTHS.indexOf(m[3].toLowerCase());
+  const ord = ORDINALS[(m[1] ?? "").toLowerCase()] ?? 1;
+  const weekday = WEEKDAYS.indexOf((m[2] ?? "").toLowerCase());
+  const month = MONTHS.indexOf((m[3] ?? "").toLowerCase());
   let year = m[4] ? parseInt(m[4], 10) : ref.getFullYear();
 
   const build = (y: number) => {
@@ -133,7 +133,7 @@ export function parseDate(
     (() => {
       const results = chrono.parse(text, ref, { forwardDate: true });
       if (!results.length) return null;
-      const r = results[0];
+      const r = results[0]!;
       return { date: atNoon(r.start.date()), match: r.text };
     })()
   );
@@ -167,10 +167,10 @@ export function parseCapture(
   // 1. expense
   const money = /^\$\s*(\d+(?:[.,]\d{1,2})?)\s*(.*)$/.exec(text);
   if (money) {
-    const amount = parseFloat(money[1].replace(",", "."));
-    const rest = money[2].trim();
+    const amount = parseFloat((money[1] ?? "0").replace(",", "."));
+    const rest = (money[2] ?? "").trim();
     const words = rest.split(/\s+/).filter(Boolean);
-    const trailing = words.length ? words[words.length - 1].toLowerCase() : "";
+    const trailing = (words[words.length - 1] ?? "").toLowerCase();
     const matched =
       budgetCategories.find(
         (c) =>
