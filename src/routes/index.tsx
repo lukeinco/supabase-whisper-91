@@ -1,25 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import {
-  SUPABASE_URL,
-  isSupabaseConfigured,
-  supabase,
-} from "@/integrations/supabase/client";
+import { useCallback, useState } from "react";
+import { useAppSecret } from "@/lib/app-secret";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileShell } from "@/components/dashboard/MobileShell";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { CaptureBar } from "@/components/dashboard/CaptureBar";
+import { DesktopGrid } from "@/components/dashboard/DesktopGrid";
 
 export const Route = createFileRoute("/")({
+  ssr: false,
   head: () => ({
     meta: [
-      { title: "Supabase Backend Console" },
+      { title: "Life Dashboard" },
       {
         name: "description",
         content:
-          "Live connection status and health check for this app's Supabase backend project.",
+          "A private single-user life dashboard: today, to-do, to-buy, budget, waiting on, and scratchpad in one dense view.",
       },
-      { property: "og:title", content: "Supabase Backend Console" },
+      { property: "og:title", content: "Life Dashboard" },
       {
         property: "og:description",
         content:
-          "Live connection status and health check for this app's Supabase backend project.",
+          "A private single-user life dashboard: today, to-do, to-buy, budget, waiting on, and scratchpad in one dense view.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -28,111 +30,32 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-type Status = "idle" | "checking" | "online" | "error";
+function NoKey() {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background">
+      <p className="font-mono text-[13px] text-muted">No key.</p>
+    </div>
+  );
+}
 
 function Index() {
-  const [status, setStatus] = useState<Status>("idle");
-  const [detail, setDetail] = useState<string>("");
+  const { secret, ready } = useAppSecret();
+  const [denied, setDenied] = useState(false);
+  const isMobile = useIsMobile();
+  const onUnauthorized = useCallback(() => setDenied(true), []);
 
-  useEffect(() => {
-    if (!supabase) return;
-    let active = true;
-    setStatus("checking");
-    supabase.auth
-      .getSession()
-      .then(({ error }) => {
-        if (!active) return;
-        if (error) {
-          setStatus("error");
-          setDetail(error.message);
-        } else {
-          setStatus("online");
-          setDetail("Auth endpoint reachable, session store initialized.");
-        }
-      })
-      .catch((e: unknown) => {
-        if (!active) return;
-        setStatus("error");
-        setDetail(e instanceof Error ? e.message : "Unknown error");
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  if (!ready) return <div className="min-h-[100dvh] bg-background" />;
+  if (!secret || denied) return <NoKey />;
 
-  const dot =
-    status === "online"
-      ? "bg-accent"
-      : status === "error"
-        ? "bg-destructive"
-        : "bg-muted-foreground";
+  if (isMobile) return <MobileShell />;
 
   return (
-    <main className="min-h-screen bg-background px-6 py-20">
-      <div className="mx-auto w-full max-w-2xl">
-        <p className="font-mono text-xs uppercase tracking-[0.25em] text-muted-foreground">
-          Backend
-        </p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-foreground">
-          Supabase connection
-        </h1>
-        <p className="mt-3 text-sm text-muted-foreground">
-          This app talks to an external Supabase project. Everything below reflects the
-          live client configuration.
-        </p>
-
-        <section className="mt-10 rounded-xl border border-border bg-card p-6">
-          <div className="flex items-center gap-3">
-            <span className={`h-2.5 w-2.5 rounded-full ${dot}`} />
-            <span className="text-sm font-medium text-card-foreground">
-              {status === "online"
-                ? "Connected"
-                : status === "error"
-                  ? "Connection failed"
-                  : status === "checking"
-                    ? "Checking…"
-                    : "Not configured"}
-            </span>
-          </div>
-
-          <dl className="mt-6 space-y-4 text-sm">
-            <div>
-              <dt className="text-muted-foreground">Project URL</dt>
-              <dd className="mt-1 break-all font-mono text-xs text-card-foreground">
-                {SUPABASE_URL}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Publishable key</dt>
-              <dd className="mt-1 font-mono text-xs text-card-foreground">
-                {isSupabaseConfigured ? "loaded" : "missing"}
-              </dd>
-            </div>
-            {detail && (
-              <div>
-                <dt className="text-muted-foreground">Detail</dt>
-                <dd className="mt-1 text-xs text-card-foreground">{detail}</dd>
-              </div>
-            )}
-          </dl>
-        </section>
-
-        {!isSupabaseConfigured && (
-          <section className="mt-6 rounded-xl border border-border bg-secondary p-6 text-sm text-secondary-foreground">
-            <h2 className="font-medium">One step left</h2>
-            <p className="mt-2 text-muted-foreground">
-              Add your project&apos;s publishable (anon) key — Supabase dashboard →
-              Project Settings → API Keys — as{" "}
-              <code className="font-mono text-xs">VITE_SUPABASE_PUBLISHABLE_KEY</code>, or
-              paste it into{" "}
-              <code className="font-mono text-xs">
-                src/integrations/supabase/client.ts
-              </code>
-              . The key is publishable and safe in client code.
-            </p>
-          </section>
-        )}
-      </div>
-    </main>
+    <div className="flex h-[100dvh] w-full flex-col overflow-hidden">
+      <DashboardHeader weather="— · —" />
+      <CaptureBar />
+      <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
+        <DesktopGrid secret={secret} onUnauthorized={onUnauthorized} />
+      </main>
+    </div>
   );
 }
