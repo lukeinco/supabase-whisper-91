@@ -12,7 +12,7 @@ import {
   type BudgetCat,
   type QueueCard,
 } from "@/lib/budget";
-import { EmptyLine, LoadingLine } from "./primitives";
+import { EmptyAction, EmptyLine, LoadingLine } from "./primitives";
 
 type Draft = { name: string; amount: string; spread: boolean };
 
