@@ -26,13 +26,7 @@ export type DigestInput = {
 };
 
 /** A plain-prose snapshot of the day, for pasting into Claude. */
-export function buildDigest({
-  state,
-  today,
-  dateLine,
-  weather,
-  events,
-}: DigestInput): string {
+export function buildDigest({ state, today, dateLine, weather, events }: DigestInput): string {
   const out: string[] = [];
   out.push(dateLine);
   if (weather) out.push(weather);
@@ -46,9 +40,7 @@ export function buildDigest({
   if (due.length === 0) out.push("  nothing due");
   else
     due.forEach((t) =>
-      out.push(
-        `  ${t.title} — ${folderName(t.folder_id)} — due ${dueLabel(t.due_ymd!, today)}`,
-      ),
+      out.push(`  ${t.title} — ${folderName(t.folder_id)} — due ${dueLabel(t.due_ymd!, today)}`),
     );
   out.push("");
 
@@ -69,9 +61,7 @@ export function buildDigest({
   if (waiting.length === 0) out.push("  nobody");
   else
     waiting.forEach((w) =>
-      out.push(
-        `  ${w.title} — ${w.person || "someone"} — ${daysElapsed(w.since_ymd, today)}`,
-      ),
+      out.push(`  ${w.title} — ${w.person || "someone"} — ${daysElapsed(w.since_ymd, today)}`),
     );
   out.push("");
 
@@ -101,7 +91,14 @@ export function buildDigest({
 
   const notes = normalizeNotes(state).trim();
   out.push("Scratchpad:");
-  out.push(notes ? notes.split("\n").map((l) => `  ${l}`).join("\n") : "  empty");
+  out.push(
+    notes
+      ? notes
+          .split("\n")
+          .map((l) => `  ${l}`)
+          .join("\n")
+      : "  empty",
+  );
 
   return out.join("\n");
 }

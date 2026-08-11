@@ -52,6 +52,39 @@ export function ymdToISO(ymd: string): string {
   return new Date(`${ymd}T12:00:00Z`).toISOString();
 }
 
+function denverOffsetMs(at: Date): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const p: Record<string, string> = {};
+  for (const part of dtf.formatToParts(at)) p[part.type] = part.value;
+  const asUTC = Date.UTC(
+    Number(p["year"]),
+    Number(p["month"]) - 1,
+    Number(p["day"]),
+    Number(p["hour"]) % 24,
+    Number(p["minute"]),
+    Number(p["second"]),
+  );
+  return asUTC - at.getTime();
+}
+
+/** Full ISO timestamp for a Denver-local wall clock date + time. */
+export function denverISO(ymd: string, hour: number, minute: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const wall = Date.UTC(y!, (m ?? 1) - 1, d ?? 1, hour, minute);
+  let off = denverOffsetMs(new Date(wall));
+  off = denverOffsetMs(new Date(wall - off));
+  return new Date(wall - off).toISOString();
+}
+
 function msUntilDenverMidnight(): number {
   const now = new Date();
   const today = denverYMD(now);

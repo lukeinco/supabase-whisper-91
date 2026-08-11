@@ -7,7 +7,5 @@ import { formatWeather, useWeather } from "@/lib/weather";
 export function WeatherLine({ className = "" }: { className?: string }) {
   const w = useWeather();
   if (!w) return null;
-  return (
-    <p className={`font-mono text-[12px] text-muted ${className}`}>{formatWeather(w)}</p>
-  );
+  return <p className={`font-mono text-[12px] text-muted ${className}`}>{formatWeather(w)}</p>;
 }

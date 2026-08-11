@@ -56,8 +56,7 @@ export function CommandOverlay({
   );
 
   const ordered = useMemo(
-    () =>
-      GROUP_ORDER.flatMap((g) => hits.filter((h) => h.group === g)),
+    () => GROUP_ORDER.flatMap((g) => hits.filter((h) => h.group === g)),
     [hits],
   );
 
@@ -122,18 +121,14 @@ export function CommandOverlay({
                   if (rows.length === 0) return null;
                   return (
                     <div key={group}>
-                      <p className="px-4 pb-1 pt-3 font-mono text-[11px] text-muted">
-                        {group}
-                      </p>
+                      <p className="px-4 pb-1 pt-3 font-mono text-[11px] text-muted">{group}</p>
                       {rows.map((h) => {
                         const active = ordered[cursor]?.id === h.id;
                         return (
                           <button
                             key={h.id}
                             type="button"
-                            onMouseEnter={() =>
-                              setCursor(ordered.findIndex((o) => o.id === h.id))
-                            }
+                            onMouseEnter={() => setCursor(ordered.findIndex((o) => o.id === h.id))}
                             onClick={() => jump(h)}
                             className={`flex h-[34px] w-full items-center gap-3 border-b border-border px-4 text-left ${
                               active ? "bg-muted/10" : ""
@@ -168,9 +163,7 @@ export function CommandOverlay({
                 key={key}
                 className="flex h-[34px] w-full items-center gap-3 border-b border-border px-4"
               >
-                <span className="w-[130px] shrink-0 font-mono text-[11px] text-muted">
-                  {key}
-                </span>
+                <span className="w-[130px] shrink-0 font-mono text-[11px] text-muted">{key}</span>
                 <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
                   {what}
                 </span>

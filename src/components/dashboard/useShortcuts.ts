@@ -25,13 +25,7 @@ export type ShortcutHandlers = {
 };
 
 /** Global keyboard shortcuts. Every key except Escape is ignored in inputs. */
-export function useShortcuts({
-  onSearch,
-  onHelp,
-  onQueue,
-  onEscape,
-  onTab,
-}: ShortcutHandlers) {
+export function useShortcuts({ onSearch, onHelp, onQueue, onEscape, onTab }: ShortcutHandlers) {
   useEffect(() => {
     function handler(e: KeyboardEvent) {
       if (e.key === "Escape") {

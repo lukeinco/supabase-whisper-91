@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { EmptyAction, focusCapture } from "./primitives";
 import { dueLabel, isDueNow, useDenverToday, ymdToISO } from "@/lib/denver";
 import {
   nextOccurrence,
@@ -35,6 +36,8 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   const [folders, setFolders] = useState<Folder[]>([UNFILED]);
   const [editing, setEditing] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [editingFolder, setEditingFolder] = useState<string | null>(null);
+  const [addingFolder, setAddingFolder] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const hoppedRef = useRef<Set<string>>(new Set());
 
@@ -59,6 +62,15 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   const send = useCallback(
     (action: string, payload: Record<string, unknown>) => {
       mutate(secret, "todo", action, payload).catch((e: unknown) => {
+        if (e instanceof UnauthorizedError) onUnauthorized?.();
+      });
+    },
+    [secret, onUnauthorized],
+  );
+
+  const sendFolder = useCallback(
+    (action: string, payload: Record<string, unknown>) => {
+      mutate(secret, "folder", action, payload).catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
       });
     },
@@ -229,6 +241,47 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     send("edited", { reorder: order });
   }
 
+  function file(t: Todo, folderId: string | null) {
+    setTodos((prev) =>
+      (prev ?? []).map((x) => (x.id === t.id ? { ...x, folder_id: folderId } : x)),
+    );
+    send("edited", { id: t.id, folder_id: folderId });
+  }
+
+  function addFolder(name: string) {
+    const clean = name.trim();
+    setAddingFolder(false);
+    if (!clean) return;
+    const sort_order = folders.length - 1;
+    const id = `tmp-${Date.now()}`;
+    setFolders((prev) => [
+      ...prev.filter((f) => f.id !== UNFILED.id),
+      { id, name: clean },
+      UNFILED,
+    ]);
+    sendFolder("created", { name: clean, sort_order });
+  }
+
+  function renameFolder(f: Folder, name: string) {
+    const clean = name.trim();
+    setEditingFolder(null);
+    if (!clean || clean === f.name) return;
+    setFolders((prev) => prev.map((x) => (x.id === f.id ? { ...x, name: clean } : x)));
+    sendFolder("edited", { id: f.id, name: clean });
+  }
+
+  function removeFolder(f: Folder) {
+    setFolders((prev) => prev.filter((x) => x.id !== f.id));
+    setTodos((prev) =>
+      (prev ?? []).map((x) => (x.folder_id === f.id ? { ...x, folder_id: null } : x)),
+    );
+    sendFolder("deleted", { id: f.id });
+    withUndo("folder deleted", () => {
+      setFolders((prev) => [...prev.filter((x) => x.id !== UNFILED.id), f, UNFILED]);
+      sendFolder("edited", { id: f.id, deleted_at: null });
+    });
+  }
+
   const rowH = dense ? "h-[34px]" : "h-[46px]";
   const textSize = dense ? "text-[14px]" : "text-[15px]";
 
@@ -252,20 +305,20 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       hop={pinned && hopIds.has(t.id)}
+      folders={folders}
+      onFile={(folderId) => file(t, folderId)}
     />
   );
-
 
   if (todos === null) {
     return <p className="px-4 py-3 font-mono text-[12px] text-muted">loading…</p>;
   }
 
-  if (todos.length === 0) {
-    return <p className="px-4 py-3 font-mono text-[12px] text-muted">nothing due</p>;
-  }
-
   return (
     <div ref={listRef} className="w-full min-w-0 pb-2">
+      {todos.length === 0 ? (
+        <EmptyAction onClick={focusCapture}>nothing due — add one</EmptyAction>
+      ) : null}
       {dueNow.length > 0 ? (
         <div className="mb-3">
           <p className="px-4 py-2 font-mono text-[11px] text-accent">due now</p>
@@ -276,18 +329,77 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       <div className="flex flex-col gap-3 px-4">
         {byFolder.map(({ folder, items }) => (
           <div key={folder.id} className="rounded-[6px] border border-muted/25">
-            <p className="px-3 pt-2 font-mono text-[11px] text-muted">{folder.name}</p>
+            <div className="flex items-center gap-2 px-3 pt-2">
+              {editingFolder === folder.id ? (
+                <input
+                  autoFocus
+                  defaultValue={folder.name}
+                  onBlur={(e) => renameFolder(folder, e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") renameFolder(folder, e.currentTarget.value);
+                    if (e.key === "Escape") setEditingFolder(null);
+                  }}
+                  className="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-foreground outline-none"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    folder.id === UNFILED.id ? undefined : setEditingFolder(folder.id)
+                  }
+                  className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-muted"
+                >
+                  {folder.name}
+                </button>
+              )}
+              {folder.id === UNFILED.id ? null : (
+                <button
+                  type="button"
+                  aria-label="delete folder"
+                  onClick={() => removeFolder(folder)}
+                  className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+                >
+                  ×
+                </button>
+              )}
+            </div>
             <div className="mt-1">
               {items.length === 0 ? (
                 <p className="px-3 pb-2 font-mono text-[11px] text-muted">empty</p>
               ) : (
                 items.map((t) => row(t, false))
               )}
-
             </div>
           </div>
         ))}
       </div>
+
+      {addingFolder ? (
+        <input
+          autoFocus
+          placeholder="folder"
+          onBlur={(e) => addFolder(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") addFolder(e.currentTarget.value);
+            if (e.key === "Escape") setAddingFolder(false);
+          }}
+          className="w-full bg-transparent px-4 pt-3 font-mono text-[11px] text-foreground placeholder:text-muted outline-none"
+        />
+      ) : folders.length <= 1 ? (
+        <EmptyAction onClick={() => setAddingFolder(true)}>no folders — add one</EmptyAction>
+      ) : (
+        <span
+          role="link"
+          tabIndex={0}
+          onClick={() => setAddingFolder(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") setAddingFolder(true);
+          }}
+          className="block cursor-pointer px-4 pt-3 font-mono text-[11px] text-muted"
+        >
+          + add folder
+        </span>
+      )}
     </div>
   );
 }
@@ -310,6 +422,8 @@ type RowProps = {
   onPointerDown: (e: React.PointerEvent) => void;
   onPointerMove: (e: React.PointerEvent) => void;
   onPointerUp: () => void;
+  folders: Folder[];
+  onFile: (folderId: string | null) => void;
 };
 
 function TodoRow({
@@ -330,6 +444,8 @@ function TodoRow({
   onPointerDown,
   onPointerMove,
   onPointerUp,
+  folders,
+  onFile,
 }: RowProps) {
   const label = t.due_ymd ? dueLabel(t.due_ymd, today) : null;
   return (
@@ -371,6 +487,30 @@ function TodoRow({
           {t.title}
         </button>
       )}
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="shrink-0 rounded-[4px] border border-muted/30 px-[5px] py-px font-mono text-[10px] text-muted"
+          >
+            {folders.find((f) => f.id === (t.folder_id ?? UNFILED.id))?.name ?? "file"}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-auto min-w-[120px] p-1">
+          <div className="flex flex-col">
+            {folders.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => onFile(f.id === UNFILED.id ? null : f.id)}
+                className="px-2 py-1 text-left font-mono text-[11px] text-muted hover:text-foreground"
+              >
+                {f.name}
+              </button>
+            ))}
+          </div>
+        </PopoverContent>
+      </Popover>
       {label ? (
         <Popover>
           <PopoverTrigger asChild>

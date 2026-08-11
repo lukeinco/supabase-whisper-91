@@ -4,6 +4,7 @@ import { Widget } from "./Widget";
 import { EmptyLine, LoadingLine } from "./primitives";
 import { TodoList } from "./TodoList";
 import { CalendarToday } from "./CalendarToday";
+import { DueNowToday } from "./DueNowToday";
 import { BudgetView } from "./BudgetView";
 import { BuyList } from "./BuyList";
 import { RoutineList } from "./RoutineList";
@@ -98,7 +99,13 @@ export function DesktopGrid({
                     <NextReminder reminder={hub.next} />
                   </div>
                 ) : null}
-                <CalendarToday secret={secret} dense showLabel={false} onUnauthorized={onUnauthorized} />
+                <DueNowToday secret={secret} dense onUnauthorized={onUnauthorized} />
+                <CalendarToday
+                  secret={secret}
+                  dense
+                  showLabel={false}
+                  onUnauthorized={onUnauthorized}
+                />
               </>
             ) : w.id === "to-do" ? (
               <TodoList secret={secret} dense onUnauthorized={onUnauthorized} />
@@ -137,7 +144,6 @@ export function DesktopGrid({
       if (e instanceof UnauthorizedError) onUnauthorized();
     });
   }
-
 
   return (
     <div ref={containerRef} className="w-full">

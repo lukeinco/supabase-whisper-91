@@ -3,9 +3,10 @@
 // policies and no grants to anon/authenticated. The #k= secret is sent as the
 // x-app-secret header and the functions hold the service role key server-side.
 
-const SUPABASE_URL =
-  ((import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ??
-    "https://druggbmhwfqwomyjvpgc.supabase.co").replace(/\/$/, "");
+const SUPABASE_URL = (
+  (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ??
+  "https://druggbmhwfqwomyjvpgc.supabase.co"
+).replace(/\/$/, "");
 
 export const FUNCTIONS_BASE = `${SUPABASE_URL}/functions/v1`;
 

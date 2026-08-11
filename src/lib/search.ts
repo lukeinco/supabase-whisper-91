@@ -1,5 +1,5 @@
 import { normalizeTodos } from "./todos";
-import { normalizeBuyItems } from "./buy";
+import { normalizeBuyCategories, normalizeBuyItems } from "./buy";
 import { normalizeNotes, normalizeWaiting } from "./modules";
 import type { CalendarEvent } from "./calendar";
 import { eventTimeLabel } from "./calendar";
@@ -17,24 +17,14 @@ export type SearchHit = {
 
 const MAX_PER_GROUP = 8;
 
-export const GROUP_ORDER: SearchGroup[] = [
-  "to-do",
-  "to-buy",
-  "waiting on",
-  "notes",
-  "events",
-];
+export const GROUP_ORDER: SearchGroup[] = ["to-do", "to-buy", "waiting on", "notes", "events"];
 
 function match(text: string, q: string): boolean {
   return text.toLowerCase().includes(q);
 }
 
 /** Case-insensitive substring search across everything in state. */
-export function searchState(
-  state: unknown,
-  events: CalendarEvent[],
-  query: string,
-): SearchHit[] {
+export function searchState(state: unknown, events: CalendarEvent[], query: string): SearchHit[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const hits: SearchHit[] = [];
@@ -56,6 +46,7 @@ export function searchState(
       })),
   );
 
+  const buyCats = normalizeBuyCategories(state);
   push(
     "to-buy",
     normalizeBuyItems(state)
@@ -64,7 +55,7 @@ export function searchState(
         id: b.id,
         group: "to-buy" as const,
         title: b.title,
-        meta: b.category,
+        meta: buyCats.find((c) => c.id === b.category_id)?.name ?? null,
         tab: "buy" as TabId,
       })),
   );
@@ -121,9 +112,9 @@ export function highlightItem(hit: SearchHit) {
     );
     let el: HTMLElement | null = byId;
     if (!el) {
-      const candidates = Array.from(
-        document.querySelectorAll<HTMLElement>("main *"),
-      ).filter((n) => n.children.length === 0 && n.textContent?.trim() === hit.title);
+      const candidates = Array.from(document.querySelectorAll<HTMLElement>("main *")).filter(
+        (n) => n.children.length === 0 && n.textContent?.trim() === hit.title,
+      );
       el = candidates[0]?.closest("div, li") ?? candidates[0] ?? null;
     }
     if (!el) return;

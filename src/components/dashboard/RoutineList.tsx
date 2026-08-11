@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Square, SquareCheck } from "lucide-react";
 import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { EmptyAction } from "./primitives";
 import { useDenverToday } from "@/lib/denver";
 import {
   normalizeRoutineTicks,
@@ -64,10 +65,7 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
     setAdding(false);
     if (!clean) return;
     const id = `tmp-${Date.now()}`;
-    setRoutines((prev) => [
-      ...(prev ?? []),
-      { id, title: clean, position: (prev?.length ?? 0) },
-    ]);
+    setRoutines((prev) => [...(prev ?? []), { id, title: clean, position: prev?.length ?? 0 }]);
     send("created", { title: clean });
   }
 
@@ -81,7 +79,7 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
   return (
     <div className="w-full min-w-0 pb-2">
       {routines.length === 0 && !adding ? (
-        <p className="px-4 py-3 font-mono text-[12px] text-muted">empty</p>
+        <EmptyAction onClick={() => setAdding(true)}>no routine — add one</EmptyAction>
       ) : (
         routines.map((r) => {
           const done = ticks[r.id] === today;
@@ -112,7 +110,9 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
       )}
 
       {adding ? (
-        <div className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}>
+        <div
+          className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+        >
           <Square size={19} strokeWidth={1.5} className="shrink-0 text-muted" />
           <input
             autoFocus

@@ -130,7 +130,10 @@ export function ReviewQueue({
             style={{
               transform: `translate(${offset.x}px, ${offset.y}px)`,
               opacity: exit ? 0 : 1,
-              transition: exit || (!drag.x && !drag.y) ? "transform 200ms linear, opacity 200ms linear" : "none",
+              transition:
+                exit || (!drag.x && !drag.y)
+                  ? "transform 200ms linear, opacity 200ms linear"
+                  : "none",
               touchAction: "none",
             }}
             className="flex min-h-0 flex-1 select-none flex-col items-center justify-center px-6 text-center"
@@ -145,16 +148,32 @@ export function ReviewQueue({
           </div>
 
           <div className="flex shrink-0 items-center justify-between px-6 pb-6 pt-2">
-            <button type="button" onClick={() => act("left", card)} className="font-mono text-[11px] text-muted">
+            <button
+              type="button"
+              onClick={() => act("left", card)}
+              className="font-mono text-[11px] text-muted"
+            >
               clear
             </button>
-            <button type="button" onClick={() => act("up", card)} className="font-mono text-[11px] text-muted">
+            <button
+              type="button"
+              onClick={() => act("up", card)}
+              className="font-mono text-[11px] text-muted"
+            >
               make task
             </button>
-            <button type="button" onClick={() => act("right", card)} className="font-mono text-[11px] text-muted">
+            <button
+              type="button"
+              onClick={() => act("right", card)}
+              className="font-mono text-[11px] text-muted"
+            >
               keep
             </button>
-            <button type="button" onClick={() => act("down", card)} className="font-mono text-[11px] text-muted">
+            <button
+              type="button"
+              onClick={() => act("down", card)}
+              className="font-mono text-[11px] text-muted"
+            >
               exit
             </button>
           </div>
