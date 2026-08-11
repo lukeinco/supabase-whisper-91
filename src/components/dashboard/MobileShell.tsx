@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { refreshState } from "@/lib/api";
-import { useStateVersion } from "@/lib/state-cache";
+import { resetVisit } from "@/lib/visit-completed";
 import { DashboardHeader } from "./DashboardHeader";
 
 import { WeatherLine } from "./WeatherLine";
@@ -38,7 +38,13 @@ const TAB_ORDER: TabId[] = ["today", "do", "buy", "budget", "notes"];
 const PULL_THRESHOLD = 70;
 
 export function MobileShell({ secret }: { secret: string }) {
-  const [tab, setTab] = useState<TabId>("today");
+  const [tab, setTabState] = useState<TabId>("today");
+  const setTab = useCallback((t: TabId) => {
+    setTabState((prev) => {
+      if (prev !== t) resetVisit();
+      return t;
+    });
+  }, []);
   const [queueOpen, setQueueOpen] = useState(false);
   const hub = useReminderHub(secret);
   const ids = TAB_WIDGETS[tab];
@@ -46,7 +52,6 @@ export function MobileShell({ secret }: { secret: string }) {
   const panStart = useRef<{ x: number; y: number } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [overlay, setOverlay] = useState<OverlayMode>(null);
-  const version = useStateVersion();
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const pulling = useRef(false);
@@ -60,7 +65,7 @@ export function MobileShell({ secret }: { secret: string }) {
       setOverlay(null);
       setQueueOpen(false);
     }, []),
-    onTab: useCallback((t: TabId) => setTab(t), []),
+    onTab: setTab,
   });
 
   return (
@@ -95,7 +100,10 @@ export function MobileShell({ secret }: { secret: string }) {
           setPull(0);
           if (armed && !refreshing) {
             setRefreshing(true);
-            void refreshState(secret).finally(() => setRefreshing(false));
+            void refreshState(secret).finally(() => {
+              resetVisit();
+              setRefreshing(false);
+            });
             swipeStart.current = null;
             panStart.current = null;
             return;
