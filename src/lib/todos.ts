@@ -14,9 +14,10 @@ export type Todo = {
 export type Folder = {
   id: string;
   name: string;
+  sort_order: number;
 };
 
-export const UNFILED: Folder = { id: "unfiled", name: "unfiled" };
+export const UNFILED: Folder = { id: "unfiled", name: "unfiled", sort_order: 1e9 };
 
 type Raw = Record<string, unknown>;
 
@@ -32,10 +33,15 @@ export function normalizeFolders(state: unknown): Folder[] {
       const r = f as Raw;
       const id = str(r["id"]);
       if (!id) return null;
-      return { id, name: str(r["name"]) ?? "folder" } satisfies Folder;
+      return {
+        id,
+        name: str(r["name"]) ?? "folder",
+        sort_order: typeof r["sort_order"] === "number" ? (r["sort_order"] as number) : 0,
+      } satisfies Folder;
     })
     .filter((f): f is Folder => f !== null)
-    .filter((f) => f.id !== UNFILED.id);
+    .filter((f) => f.id !== UNFILED.id)
+    .sort((a, b) => a.sort_order - b.sort_order);
   return [...folders, UNFILED];
 }
 

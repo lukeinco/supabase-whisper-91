@@ -12,6 +12,8 @@ export type BuyItem = {
   position: number;
   /** Optional expected price, shown on the row and prefilled when checked off. */
   price: number | null;
+  /** When the item was captured — the "date" sort key for buy rows. */
+  created_at: string | null;
 };
 
 export type BudgetCategory = {
@@ -71,6 +73,7 @@ export function normalizeBuyItems(state: unknown): BuyItem[] {
         category_id: str(r["category_id"]) ?? str(r["buy_category_id"]),
         position: typeof r["position"] === "number" ? (r["position"] as number) : i,
         price: num(r["estimated_amount"] ?? r["price"] ?? r["amount"]),
+        created_at: str(r["created_at"] ?? r["inserted_at"]),
       } satisfies BuyItem;
     })
     .filter((b): b is BuyItem => b !== null)

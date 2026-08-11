@@ -6,6 +6,8 @@ import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction, focusCapture } from "./primitives";
 import { GroupAddRow } from "./GroupAddRow";
 import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
+import { moveBefore, useDragSort } from "./drag-sort";
+import { applySort, SortControl, useSort } from "./sort-control";
 import {
   matchBudgetCategory,
   normalizeBudgetCategories,
@@ -36,6 +38,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
   const catEdit = useEditing();
   const [addingCat, setAddingCat] = useState(false);
   const [pending, setPending] = useState<Record<string, Pending>>({});
+  const { sort, toggle } = useSort();
   const timers = useRef<Record<string, number>>({});
 
   const done = useVisitCompleted<BuyItem>();
@@ -79,13 +82,37 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
     () =>
       categories.map((category) => ({
         category,
-        items: done
-          .merge(items ?? [])
-          .filter((b) => b.category_id === category.id)
-          .sort((a, b) => a.position - b.position),
+        items: applySort(
+          done
+            .merge(items ?? [])
+            .filter((b) => b.category_id === category.id)
+            .sort((a, b) => a.position - b.position),
+          sort,
+          { price: (b) => b.price, date: (b) => b.created_at },
+        ),
       })),
-    [items, categories, done],
+    [items, categories, done, sort],
   );
+
+  /* ---- manual ordering: rows inside a category, and the categories themselves ---- */
+  const itemDrag = useDragSort({
+    enabled: sort.key === "manual",
+    onOver: (id, overId) =>
+      setItems((prev) =>
+        prev ? moveBefore(prev, id, overId).map((x, i) => ({ ...x, position: i })) : prev,
+      ),
+    onDrop: () =>
+      send("edited", { reorder: (items ?? []).map((x, i) => ({ id: x.id, position: i })) }),
+  });
+
+  const catDrag = useDragSort({
+    onOver: (id, overId) =>
+      setCategories((prev) => moveBefore(prev, id, overId).map((c, i) => ({ ...c, sort_order: i }))),
+    onDrop: () =>
+      sendCat("edited", {
+        reorder: categories.map((c, i) => ({ id: c.id, sort_order: i, position: i })),
+      }),
+  });
 
   /** Close the amount row. The item itself stays put, struck through. */
   function drop(id: string) {
@@ -277,12 +304,18 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
       {nothingToBuy ? (
         <EmptyAction onClick={focusCapture}>nothing to buy — add one</EmptyAction>
       ) : null}
+      <div className="flex items-center justify-end px-4 pb-1">
+        <SortControl sort={sort} toggle={toggle} />
+      </div>
       <div className="flex flex-col gap-3 px-4">
         {grouped.map(({ category, items: list }) => (
           <div key={category.id} className="rounded-[6px] border border-muted/25">
             <div
-              className="flex items-center gap-2 px-3 pt-2"
+              className={`flex touch-none items-center gap-2 px-3 pt-2 ${
+                catDrag.dragId === category.id ? "opacity-60" : ""
+              }`}
               ref={catEdit.editing === category.id ? catEdit.editRef : undefined}
+              {...(catEdit.editing === category.id ? {} : catDrag.bind(category.id, "buy-category"))}
             >
               {catEdit.editing === category.id ? (
                 <NameEdit
@@ -324,6 +357,10 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                         onSave={(title, price) => saveItem(b, title, price)}
                         onCheck={() => check(b)}
                         onRemove={() => remove(b)}
+                        dragging={itemDrag.dragId === b.id}
+                        dragProps={
+                          edit.editing === b.id ? {} : itemDrag.bind(b.id, `buy-${category.id}`)
+                        }
                       />
 
                       {p ? (
@@ -443,6 +480,8 @@ function BuyRow({
   onSave,
   onCheck,
   onRemove,
+  dragging,
+  dragProps,
 }: {
   b: BuyItem;
   rowH: string;
@@ -455,6 +494,8 @@ function BuyRow({
   onSave: (title: string, price: string) => void;
   onCheck: () => void;
   onRemove: () => void;
+  dragging: boolean;
+  dragProps: Record<string, unknown>;
 }) {
   const gesture = useEditGesture(onEnterEdit);
   const [value, setValue] = useState(b.title);
@@ -469,7 +510,10 @@ function BuyRow({
   return (
     <div
       ref={editing ? editRef : undefined}
-      className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+      {...dragProps}
+      className={`flex ${rowH} w-full min-w-0 touch-none items-center gap-2 border-b border-border px-4 ${
+        dragging ? "opacity-60" : ""
+      }`}
     >
       {editing ? (
         <>
