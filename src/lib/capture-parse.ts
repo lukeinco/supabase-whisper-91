@@ -9,12 +9,13 @@ export type Parsed = {
   amount?: number;
   category?: string | null;
   due?: Date | null;
+  /** Denver-local wall-clock time when the input named one. */
+  time?: { hour: number; minute: number } | null;
 };
 
-export const BUY_CATEGORIES = ["grocery", "hardware", "household"] as const;
-export type BuyCategory = (typeof BUY_CATEGORIES)[number];
+export type NamedCategory = { id: string; name: string };
 
-const BUY_KEYWORDS: Record<BuyCategory, string[]> = {
+const BUY_KEYWORDS: Record<string, string[]> = {
   grocery: [
     "milk", "eggs", "bread", "coffee", "butter", "cheese", "rice", "pasta",
     "chicken", "banana", "bananas", "apples", "groceries", "grocery", "sugar",
@@ -31,10 +32,16 @@ const BUY_KEYWORDS: Record<BuyCategory, string[]> = {
   ],
 };
 
-export function guessBuyCategory(text: string): BuyCategory | null {
+/** Guess one of the user's own buy categories from the text. */
+export function guessBuyCategory<T extends NamedCategory>(
+  text: string,
+  categories: T[],
+): T | null {
   const t = ` ${text.toLowerCase()} `;
-  for (const cat of BUY_CATEGORIES) {
-    for (const kw of BUY_KEYWORDS[cat]) {
+  for (const cat of categories) {
+    const name = cat.name.trim().toLowerCase();
+    if (t.includes(` ${name} `)) return cat;
+    for (const kw of BUY_KEYWORDS[name] ?? []) {
       if (t.includes(` ${kw} `) || t.includes(`${kw}s `)) return cat;
     }
   }
@@ -123,10 +130,13 @@ export function parseOrdinalWeekdayOfMonth(
   return { date, match: m[0] };
 }
 
-export function parseDate(
-  text: string,
-  ref = new Date(),
-): { date: Date; match: string } | null {
+export type DateHit = {
+  date: Date;
+  match: string;
+  time?: { hour: number; minute: number } | null;
+};
+
+export function parseDate(text: string, ref = new Date()): DateHit | null {
   return (
     parseRelativeWeekday(text, ref) ??
     parseOrdinalWeekdayOfMonth(text, ref) ??
@@ -134,9 +144,24 @@ export function parseDate(
       const results = chrono.parse(text, ref, { forwardDate: true });
       if (!results.length) return null;
       const r = results[0]!;
-      return { date: atNoon(r.start.date()), match: r.text };
+      const d = r.start.date();
+      const hasTime = r.start.isCertain("hour");
+      return {
+        date: atNoon(new Date(d)),
+        match: r.text,
+        time: hasTime
+          ? { hour: d.getHours(), minute: d.getMinutes() }
+          : null,
+      };
     })()
   );
+}
+
+/** "2:30pm" — lowercase mono time label. */
+export function formatTimeLabel(hour: number, minute: number): string {
+  const h12 = hour % 12 === 0 ? 12 : hour % 12;
+  const mm = String(minute).padStart(2, "0");
+  return `${h12}:${mm}${hour < 12 ? "am" : "pm"}`;
 }
 
 export function formatChipDate(d: Date) {
@@ -185,9 +210,15 @@ export function parseCapture(
   const found = parseDate(text, ref);
   if (found) {
     const title = text.replace(found.match, " ").replace(/\s+/g, " ").trim();
-    return { kind: "todo", title: title || text, due: found.date, category: null };
+    return {
+      kind: "todo",
+      title: title || text,
+      due: found.date,
+      time: found.time ?? null,
+      category: null,
+    };
   }
 
   // 3 & 4. buy keyword or plain to-do — chip defaults to to-do either way
-  return { kind: "todo", title: text, due: null, category: null };
+  return { kind: "todo", title: text, due: null, time: null, category: null };
 }
