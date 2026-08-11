@@ -5,30 +5,33 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { getState, mutate } from "@/lib/api";
+import { denverISO } from "@/lib/denver";
+import { normalizeBuyCategories, type BuyCategory } from "@/lib/buy";
 import { EventComposer } from "./EventComposer";
 import {
-  BUY_CATEGORIES,
   formatChipDate,
+  formatTimeLabel,
   formatToastDate,
   guessBuyCategory,
   parseCapture,
-  type BuyCategory,
 } from "@/lib/capture-parse";
 
-type ChipMode = "date" | "categories" | "cycle" | "none";
+type ChipMode = "date" | "categories" | "cycle" | "remind" | "none";
 
-function useBudgetCategories(secret: string | null) {
-  const [cats, setCats] = useState<string[]>([]);
+function useCaptureState(secret: string | null) {
+  const [budgetCategories, setBudgetCategories] = useState<string[]>([]);
+  const [buyCategories, setBuyCategories] = useState<BuyCategory[]>([]);
   useEffect(() => {
     if (!secret) return;
     let alive = true;
     getState(secret)
       .then((state) => {
         if (!alive || !state) return;
+        setBuyCategories(normalizeBuyCategories(state));
         const raw = (state as Record<string, unknown>)["budget_categories"] ??
           (state as Record<string, unknown>)["budgetCategories"];
         if (Array.isArray(raw)) {
-          setCats(
+          setBudgetCategories(
             raw
               .map((c) =>
                 typeof c === "string" ? c : ((c as { name?: string })?.name ?? ""),
@@ -44,7 +47,12 @@ function useBudgetCategories(secret: string | null) {
       alive = false;
     };
   }, [secret]);
-  return cats;
+  return { budgetCategories, buyCategories };
+}
+
+function localYMD(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 export function CaptureBar({ secret }: { secret?: string | null }) {
@@ -52,11 +60,12 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
   const [dueOverride, setDueOverride] = useState<Date | null>(null);
   const [catOverride, setCatOverride] = useState<string | null>(null);
   const [cycleIndex, setCycleIndex] = useState(0);
+  const [remind, setRemind] = useState(false);
   const [open, setOpen] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const budgetCategories = useBudgetCategories(secret ?? null);
+  const { budgetCategories, buyCategories } = useCaptureState(secret ?? null);
 
   const parsed = useMemo(
     () => parseCapture(value, budgetCategories),
@@ -68,16 +77,19 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
     setDueOverride(null);
     setCatOverride(null);
     setCycleIndex(0);
+    setRemind(false);
     setOpen(false);
   }, [parsed?.kind]);
 
-  const buyGuess = parsed?.kind === "todo" ? guessBuyCategory(parsed.title) : null;
-  const cycleOptions: (string | null)[] = buyGuess
-    ? [null, ...BUY_CATEGORIES]
+  const buyGuess =
+    parsed?.kind === "todo" ? guessBuyCategory(parsed.title, buyCategories) : null;
+  const cycleOptions: (BuyCategory | null)[] = buyGuess
+    ? [null, ...buyCategories]
     : [null];
   const cycleValue = cycleOptions[cycleIndex % cycleOptions.length] ?? null;
 
   const due = dueOverride ?? parsed?.due ?? null;
+  const time = parsed?.time ?? null;
   const expenseCat = catOverride ?? parsed?.category ?? null;
 
   let chipLabel = "";
@@ -85,41 +97,69 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
   if (parsed?.kind === "expense") {
     chipLabel = `→ $${parsed.amount}${expenseCat ? ` · ${expenseCat}` : ""}`;
     chipMode = budgetCategories.length ? "categories" : "none";
+  } else if (parsed && due && time) {
+    chipLabel = remind
+      ? `→ remind ${formatTimeLabel(time.hour, time.minute)}`
+      : "→ to-do";
+    chipMode = "remind";
   } else if (parsed && due) {
     chipLabel = `→ ${formatChipDate(due)}`;
     chipMode = "date";
   } else if (parsed) {
-    chipLabel = `→ ${cycleValue ?? "to-do"}`;
+    chipLabel = `→ ${cycleValue?.name ?? "to-do"}`;
     chipMode = buyGuess ? "cycle" : "none";
   }
 
   async function commit() {
     if (!parsed || !secret) return;
-    const snapshot = { parsed, due, expenseCat, cycleValue };
+    const snapshot = { parsed, due, time, expenseCat, cycleValue, remind };
     setValue("");
     setDueOverride(null);
     setCatOverride(null);
     setCycleIndex(0);
+    setRemind(false);
     setOpen(false);
 
-    const entity = snapshot.parsed.kind === "expense" ? "expense" : "todo";
-    const payload =
-      snapshot.parsed.kind === "expense"
-        ? {
-            title: snapshot.parsed.title,
-            amount: snapshot.parsed.amount,
-            category: snapshot.expenseCat,
-          }
-        : {
-            title: snapshot.parsed.title,
-            due_at: snapshot.due ? snapshot.due.toISOString() : null,
-            category: snapshot.cycleValue,
-          };
+    let entity = "todo";
+    let payload: Record<string, unknown>;
+    let where: string;
 
-    const where =
-      snapshot.parsed.kind === "expense"
-        ? `expense · $${snapshot.parsed.amount}${snapshot.expenseCat ? ` · ${snapshot.expenseCat}` : ""}`
-        : `${snapshot.cycleValue ?? "to-do"}${snapshot.due ? ` · due ${formatToastDate(snapshot.due)}` : ""}`;
+    if (snapshot.parsed.kind === "expense") {
+      entity = "expense";
+      payload = {
+        title: snapshot.parsed.title,
+        amount: snapshot.parsed.amount,
+        category: snapshot.expenseCat,
+      };
+      where = `expense · $${snapshot.parsed.amount}${
+        snapshot.expenseCat ? ` · ${snapshot.expenseCat}` : ""
+      }`;
+    } else if (snapshot.remind && snapshot.due && snapshot.time) {
+      entity = "reminder";
+      const fireAt = denverISO(
+        localYMD(snapshot.due),
+        snapshot.time.hour,
+        snapshot.time.minute,
+      );
+      payload = { title: snapshot.parsed.title, fire_at: fireAt };
+      where = `reminder · ${formatToastDate(snapshot.due)} ${formatTimeLabel(
+        snapshot.time.hour,
+        snapshot.time.minute,
+      )}`;
+    } else if (snapshot.cycleValue) {
+      entity = "buy_item";
+      payload = {
+        title: snapshot.parsed.title,
+        category_id: snapshot.cycleValue.id,
+      };
+      where = snapshot.cycleValue.name;
+    } else {
+      payload = {
+        title: snapshot.parsed.title,
+        due_at: snapshot.due ? snapshot.due.toISOString() : null,
+      };
+      where = `to-do${snapshot.due ? ` · due ${formatToastDate(snapshot.due)}` : ""}`;
+    }
 
     let id: string | null = null;
     try {
@@ -175,6 +215,16 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
             type="button"
             className="shrink-0"
             onClick={() => setCycleIndex((i) => i + 1)}
+          >
+            {chip}
+          </button>
+        )}
+
+        {chipMode === "remind" && (
+          <button
+            type="button"
+            className="shrink-0"
+            onClick={() => setRemind((r) => !r)}
           >
             {chip}
           </button>
