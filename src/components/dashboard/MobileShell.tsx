@@ -13,6 +13,7 @@ import { TodoList } from "./TodoList";
 import { CalendarToday } from "./CalendarToday";
 import { DueNowToday } from "./DueNowToday";
 import { BudgetView } from "./BudgetView";
+import { useOffline } from "@/lib/state-cache";
 import { BuyList } from "./BuyList";
 import { RoutineList } from "./RoutineList";
 import { WaitingOn } from "./WaitingOn";
@@ -57,6 +58,7 @@ export function MobileShell({ secret }: { secret: string }) {
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const pulling = useRef(false);
+  const offline = useOffline();
 
 
   useShortcuts({
@@ -73,6 +75,9 @@ export function MobileShell({ secret }: { secret: string }) {
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden">
       <DashboardHeader showWeather={false} />
+      {offline ? (
+        <p className="px-4 font-mono text-[11px] text-muted">offline — showing last known</p>
+      ) : null}
       <main
         ref={mainRef}
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4"

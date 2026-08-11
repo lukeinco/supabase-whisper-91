@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppSecret } from "@/lib/app-secret";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileShell } from "@/components/dashboard/MobileShell";
@@ -111,7 +111,7 @@ function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthoriz
 
 
   useEffect(() => {
-    const onFocus = () => void refreshState(secret);
+    const onFocus = () => void refreshState(secret, { force: false });
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [secret]);
@@ -130,6 +130,7 @@ function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthoriz
         right={<AskClaude secret={secret} />}
       />
       <CaptureBar secret={secret} />
+      <OfflineLine />
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
         <DesktopGrid secret={secret} onUnauthorized={onUnauthorized} />
       </main>
