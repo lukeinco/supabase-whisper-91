@@ -18,6 +18,7 @@ import {
   type QueueCard,
 } from "@/lib/budget";
 import { EmptyAction, EmptyLine, LoadingLine } from "./primitives";
+import { useEditGesture, useEditing } from "./edit-mode";
 
 
 type Draft = { name: string; amount: string; spread: boolean };
