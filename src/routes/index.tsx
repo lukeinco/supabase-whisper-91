@@ -99,12 +99,8 @@ function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthoriz
   return (
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden">
       <DashboardHeader
-        right={
-          <div className="flex items-center gap-3">
-            <WeatherLine />
-            <AskClaude secret={secret} />
-          </div>
-        }
+        center={<WeatherLine />}
+        right={<AskClaude secret={secret} />}
       />
       <CaptureBar secret={secret} />
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">

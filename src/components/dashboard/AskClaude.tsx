@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { Copy } from "lucide-react";
 import { getCalendar, getState } from "@/lib/api";
 import { normalizeEvents } from "@/lib/calendar";
 import { buildDigest } from "@/lib/digest";
@@ -37,9 +38,10 @@ export function AskClaude({ secret, className = "" }: { secret: string; classNam
     <button
       type="button"
       onClick={() => void copy()}
-      className={`font-mono text-[11px] text-muted ${className}`}
+      className={`inline-flex items-center gap-[6px] whitespace-nowrap font-mono text-[11px] text-muted ${className}`}
     >
-      {copied ? "copied" : "current state for claude"}
+      <Copy size={16} className="shrink-0" />
+      {copied ? "copied" : "current state"}
     </button>
   );
 }
