@@ -80,7 +80,8 @@ function Index() {
 
 function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthorized: () => void }) {
   const [overlay, setOverlay] = useState<OverlayMode>(null);
-  const version = useStateVersion();
+
+
 
   useEffect(() => {
     const onFocus = () => void refreshState(secret);
