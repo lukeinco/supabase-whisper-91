@@ -15,12 +15,15 @@ function num(v: unknown): number {
   return 0;
 }
 
+export type BudgetKind = "expense" | "income";
+
 export type BudgetCat = {
   id: string;
   name: string;
   monthly_budget: number;
   spread: boolean;
   position: number;
+  kind: BudgetKind;
 };
 
 export type BudgetLine = {
@@ -29,6 +32,10 @@ export type BudgetLine = {
   amount: number;
   label: string;
   ymd: string | null;
+  /** pending income: an ask that has not been earned yet */
+  potential_amount: number | null;
+  earned_at: string | null;
+  pending: boolean;
 };
 
 
@@ -38,7 +45,13 @@ export type QueueCard = {
   amount: number;
 };
 
-export function normalizeBudgetCats(state: unknown): BudgetCat[] {
+function numOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = num(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function normalizeBudgetCats(state: unknown, kind: BudgetKind = "expense"): BudgetCat[] {
   const s = state as Raw | null;
   const raw = s?.["budgetCategories"] ?? s?.["budget_categories"];
   const list = Array.isArray(raw) ? raw : [];
@@ -47,12 +60,15 @@ export function normalizeBudgetCats(state: unknown): BudgetCat[] {
       const r = c as Raw;
       const id = str(r["id"]);
       if (!id || r["deleted_at"]) return null;
+      const k: BudgetKind = str(r["kind"]) === "income" ? "income" : "expense";
+      if (k !== kind) return null;
       return {
         id,
         name: str(r["name"]) ?? "",
         monthly_budget: num(r["monthly_budget"] ?? r["budget"] ?? r["amount"]),
         spread: r["spread"] !== false,
         position: typeof r["position"] === "number" ? (r["position"] as number) : i,
+        kind: k,
       } satisfies BudgetCat;
     })
     .filter((c): c is BudgetCat => c !== null)
@@ -67,15 +83,24 @@ export function normalizeBudgetLines(state: unknown): BudgetLine[] {
     .map((l) => {
       const r = l as Raw;
       if (r["deleted_at"]) return null;
+      const amount = numOrNull(r["amount"]);
+      const potential = numOrNull(r["potential_amount"]);
       return {
         id: str(r["id"]),
         category_id: str(r["budget_category_id"]) ?? str(r["category_id"]) ?? str(r["category"]),
-        amount: num(r["amount"]),
+        amount: amount ?? 0,
         label: str(r["label"]) ?? str(r["title"]) ?? str(r["note"]) ?? "",
         ymd:
           (str(r["spent_on"]) ?? "").slice(0, 10) ||
-          toDenverYMD(str(r["spent_at"]) ?? str(r["occurred_at"]) ?? str(r["created_at"])),
-
+          toDenverYMD(
+            str(r["earned_at"]) ??
+              str(r["spent_at"]) ??
+              str(r["occurred_at"]) ??
+              str(r["created_at"]),
+          ),
+        potential_amount: potential,
+        earned_at: str(r["earned_at"]),
+        pending: amount === null && potential !== null,
       } satisfies BudgetLine;
 
     })

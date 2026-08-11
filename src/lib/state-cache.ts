@@ -6,7 +6,7 @@ import type { DashboardState } from "./api";
  * it lives in React memory for the session and nowhere else.
  * Bump the version suffix whenever the state shape changes.
  */
-const KEY = "lifedash:state:v1";
+const KEY = "lifedash:state:v2";
 
 let memory: DashboardState | null = null;
 let loaded = false;

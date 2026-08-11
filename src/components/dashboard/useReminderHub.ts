@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { getState, mutate, resultId, UnauthorizedError } from "@/lib/api";
 import {
   dueReminderCards,
   nextReminder,
@@ -162,20 +162,29 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
     (title: string, fireAt: string) => {
       const clean = title.trim();
       if (!clean) return;
+      const tmpId = `tmp-${Date.now()}`;
       setReminders((prev) => [
         ...prev,
         {
-          id: `tmp-${Date.now()}`,
+          id: tmpId,
           title: clean,
           fire_at: fireAt,
           fireMs: new Date(fireAt).getTime(),
         } as Reminder,
       ]);
-      mutate(secret, "reminder", "created", { title: clean, fire_at: fireAt }).catch(
-        (e: unknown) => {
+      mutate(secret, "reminder", "created", { title: clean, fire_at: fireAt })
+        .then((res) => {
+          const real = resultId(res);
+          setReminders((prev) =>
+            real
+              ? prev.map((r) => (r.id === tmpId ? { ...r, id: real } : r))
+              : prev.filter((r) => r.id !== tmpId),
+          );
+        })
+        .catch((e: unknown) => {
+          setReminders((prev) => prev.filter((r) => r.id !== tmpId));
           if (e instanceof UnauthorizedError) onUnauthorized?.();
-        },
-      );
+        });
     },
     [secret, onUnauthorized],
   );

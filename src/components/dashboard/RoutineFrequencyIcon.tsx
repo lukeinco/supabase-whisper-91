@@ -10,7 +10,7 @@ export type FrequencyKind =
 type Props = {
   kind: FrequencyKind;
   /** only used when kind === "nth_weekday_of_month": 1..4 or -1 for last */
-  nth?: number;
+  nth?: number | undefined;
   size?: number;
   className?: string;
 };

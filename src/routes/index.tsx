@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppSecret } from "@/lib/app-secret";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MobileShell } from "@/components/dashboard/MobileShell";
@@ -11,8 +11,19 @@ import { AskClaude } from "@/components/dashboard/AskClaude";
 import { CommandOverlay, type OverlayMode } from "@/components/dashboard/CommandOverlay";
 import { useShortcuts } from "@/components/dashboard/useShortcuts";
 import { getState, isUnauthorized, refreshState, UnauthorizedError } from "@/lib/api";
-import { useStateVersion } from "@/lib/state-cache";
+import { useOffline, useStateVersion } from "@/lib/state-cache";
 import { usePwa } from "@/lib/pwa";
+import { useDenverToday } from "@/lib/denver";
+import { AppErrorBoundary } from "@/components/dashboard/AppErrorBoundary";
+
+/** One mono line, only when the network failed and cached data is on screen. */
+function OfflineLine() {
+  const offline = useOffline();
+  if (!offline) return null;
+  return (
+    <p className="px-4 pt-1 font-mono text-[11px] text-muted">offline — showing last known</p>
+  );
+}
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -70,14 +81,28 @@ function Index() {
     if (isUnauthorized()) setDenied(true);
   }, [version]);
 
-
+  // Denver midnight: the day rolled over, so pull fresh state once.
+  const today = useDenverToday();
+  const firstDay = useRef(today);
+  useEffect(() => {
+    if (!secret) return;
+    if (firstDay.current === today) return;
+    firstDay.current = today;
+    void refreshState(secret);
+  }, [today, secret]);
 
   if (!ready) return <div className="min-h-[100dvh] bg-background" />;
   if (!secret || denied) return <NoKey />;
 
-  if (isMobile) return <MobileShell secret={secret} />;
-
-  return <DesktopShell secret={secret} onUnauthorized={onUnauthorized} />;
+  return (
+    <AppErrorBoundary>
+      {isMobile ? (
+        <MobileShell secret={secret} />
+      ) : (
+        <DesktopShell secret={secret} onUnauthorized={onUnauthorized} />
+      )}
+    </AppErrorBoundary>
+  );
 }
 
 function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthorized: () => void }) {
@@ -86,7 +111,7 @@ function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthoriz
 
 
   useEffect(() => {
-    const onFocus = () => void refreshState(secret);
+    const onFocus = () => void refreshState(secret, { force: false });
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [secret]);
@@ -105,6 +130,7 @@ function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthoriz
         right={<AskClaude secret={secret} />}
       />
       <CaptureBar secret={secret} />
+      <OfflineLine />
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
         <DesktopGrid secret={secret} onUnauthorized={onUnauthorized} />
       </main>
