@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { useStateVersion } from "@/lib/state-cache";
 import { useDenverToday } from "@/lib/denver";
 import {
   linesForCategory,
@@ -74,6 +75,10 @@ export function BudgetView({
   }, [secret, onUnauthorized]);
 
   useEffect(load, [load]);
+  const dataVersion = useStateVersion();
+  useEffect(() => {
+    if (dataVersion > 0) load();
+  }, [dataVersion, load]);
 
   const spend = spendByCategory(lines, month.prefix);
 
@@ -105,7 +110,6 @@ export function BudgetView({
     } catch (e) {
       if (e instanceof UnauthorizedError) onUnauthorized?.();
     }
-    load();
   }
 
   function removeLine(l: BudgetLine) {
@@ -149,12 +153,29 @@ export function BudgetView({
     setEditing(null);
     setAdding(false);
     if (!payload.name) return;
+    // Update in place; no refetch, which would remount every row.
+    setCats((prev) =>
+      id
+        ? (prev ?? []).map((c) =>
+            c.id === id
+              ? { ...c, name: payload.name, monthly_budget: payload.monthly_budget, spread: payload.spread }
+              : c,
+          )
+        : [
+            ...(prev ?? []),
+            {
+              id: `tmp-${Date.now()}`,
+              name: payload.name,
+              monthly_budget: payload.monthly_budget,
+              spread: payload.spread,
+            } as (typeof prev extends (infer U)[] | null ? U : never),
+          ],
+    );
     try {
       await mutate(secret, "budget_category", id ? "edited" : "created", payload);
     } catch (e) {
       if (e instanceof UnauthorizedError) onUnauthorized?.();
     }
-    load();
   }
 
   const editor = (id: string | null) => (
