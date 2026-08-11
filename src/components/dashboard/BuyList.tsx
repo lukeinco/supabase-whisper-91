@@ -5,6 +5,7 @@ import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction, focusCapture } from "./primitives";
 import { GroupAddRow } from "./GroupAddRow";
+import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
 import {
   matchBudgetCategory,
   normalizeBudgetCategories,
@@ -31,8 +32,8 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
   const [items, setItems] = useState<BuyItem[] | null>(null);
   const [categories, setCategories] = useState<BuyCategory[]>([]);
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
-  const [editing, setEditing] = useState<string | null>(null);
-  const [editingCat, setEditingCat] = useState<string | null>(null);
+  const edit = useEditing();
+  const catEdit = useEditing();
   const [addingCat, setAddingCat] = useState(false);
   const [pending, setPending] = useState<Record<string, Pending>>({});
   const timers = useRef<Record<string, number>>({});
@@ -151,7 +152,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
 
   function rename(b: BuyItem, title: string) {
     const clean = title.trim();
-    setEditing(null);
+    edit.end();
     if (!clean || clean === b.title) return;
     setItems((prev) => (prev ?? []).map((x) => (x.id === b.id ? { ...x, title: clean } : x)));
     send("edited", { id: b.id, title: clean });
@@ -172,7 +173,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
 
   function renameCategory(c: BuyCategory, name: string) {
     const clean = name.trim();
-    setEditingCat(null);
+    catEdit.end();
     if (!clean || clean === c.name) return;
     setCategories((prev) => prev.map((x) => (x.id === c.id ? { ...x, name: clean } : x)));
     sendCat("edited", { id: c.id, name: clean });
@@ -273,81 +274,51 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
       <div className="flex flex-col gap-3 px-4">
         {grouped.map(({ category, items: list }) => (
           <div key={category.id} className="rounded-[6px] border border-muted/25">
-            <div className="flex items-center gap-2 px-3 pt-2">
-              {editingCat === category.id ? (
-                <input
-                  autoFocus
-                  defaultValue={category.name}
-                  onBlur={(e) => renameCategory(category, e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") renameCategory(category, e.currentTarget.value);
-                    if (e.key === "Escape") setEditingCat(null);
-                  }}
-                  className="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-foreground outline-none"
+            <div
+              className="flex items-center gap-2 px-3 pt-2"
+              ref={catEdit.editing === category.id ? catEdit.editRef : undefined}
+            >
+              {catEdit.editing === category.id ? (
+                <NameEdit
+                  name={category.name}
+                  onSave={(v) => renameCategory(category, v)}
+                  onCancel={catEdit.end}
                 />
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setEditingCat(category.id)}
-                  className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-muted"
-                >
-                  {category.name}
-                </button>
+                <>
+                  <CategoryName
+                    name={category.name}
+                    onEnterEdit={() => catEdit.begin(category.id)}
+                  />
+                  <button
+                    type="button"
+                    aria-label="archive category"
+                    onClick={() => removeCategory(category)}
+                    className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+                  >
+                    ×
+                  </button>
+                </>
               )}
-              <button
-                type="button"
-                aria-label="archive category"
-                onClick={() => removeCategory(category)}
-                className="shrink-0 font-mono text-[13px] text-muted opacity-40"
-              >
-                ×
-              </button>
             </div>
             <div className="mt-1">
               {list.map((b) => {
                   const p = pending[b.id];
                   return (
                     <div key={b.id}>
-                      <div
-                        className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
-                      >
-                        <button
-                          type="button"
-                          aria-label="purchased"
-                          onClick={() => check(b)}
-                          className="size-[13px] shrink-0 rounded-[2px] border border-muted/50"
-                        />
-                        {editing === b.id ? (
-                          <input
-                            autoFocus
-                            defaultValue={b.title}
-                            onBlur={(e) => rename(b, e.currentTarget.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") rename(b, e.currentTarget.value);
-                              if (e.key === "Escape") setEditing(null);
-                            }}
-                            className={`min-w-0 flex-1 bg-transparent font-sans ${textSize} text-foreground outline-none`}
-                          />
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setEditing(b.id)}
-                            className={`min-w-0 flex-1 truncate text-left font-sans ${textSize} ${
-                              p || done.has(b.id) ? "text-muted line-through" : "text-foreground"
-                            }`}
-                          >
-                            {b.title}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          aria-label="delete"
-                          onClick={() => remove(b)}
-                          className="shrink-0 font-mono text-[13px] text-muted opacity-40"
-                        >
-                          ×
-                        </button>
-                      </div>
+                      <BuyRow
+                        b={b}
+                        rowH={rowH}
+                        textSize={textSize}
+                        struck={!!p || done.has(b.id)}
+                        editing={edit.editing === b.id}
+                        editRef={edit.editing === b.id ? edit.editRef : undefined}
+                        onEnterEdit={() => edit.begin(b.id)}
+                        onCancelEdit={edit.end}
+                        onSave={(v) => rename(b, v)}
+                        onCheck={() => check(b)}
+                        onRemove={() => remove(b)}
+                      />
 
                       {p ? (
                         <div className="flex h-[30px] w-full min-w-0 items-center gap-2 border-b border-border px-4">
@@ -414,6 +385,122 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
         ))}
       </div>
       {addLink}
+    </div>
+  );
+}
+
+function CategoryName({ name, onEnterEdit }: { name: string; onEnterEdit: () => void }) {
+  const gesture = useEditGesture(onEnterEdit);
+  return (
+    <span {...gesture} className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted">
+      {name}
+    </span>
+  );
+}
+
+function NameEdit({
+  name,
+  onSave,
+  onCancel,
+}: {
+  name: string;
+  onSave: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(name);
+  return (
+    <>
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSave(value);
+          if (e.key === "Escape") onCancel();
+        }}
+        className={`${editFieldClass} font-mono text-[11px] text-foreground`}
+      />
+      <EditControls onSave={() => onSave(value)} onCancel={onCancel} />
+    </>
+  );
+}
+
+function BuyRow({
+  b,
+  rowH,
+  textSize,
+  struck,
+  editing,
+  editRef,
+  onEnterEdit,
+  onCancelEdit,
+  onSave,
+  onCheck,
+  onRemove,
+}: {
+  b: BuyItem;
+  rowH: string;
+  textSize: string;
+  struck: boolean;
+  editing: boolean;
+  editRef: ((el: HTMLElement | null) => void) | undefined;
+  onEnterEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (value: string) => void;
+  onCheck: () => void;
+  onRemove: () => void;
+}) {
+  const gesture = useEditGesture(onEnterEdit);
+  const [value, setValue] = useState(b.title);
+  useEffect(() => {
+    if (editing) setValue(b.title);
+  }, [editing, b.title]);
+
+  return (
+    <div
+      ref={editing ? editRef : undefined}
+      className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+    >
+      {editing ? (
+        <>
+          <input
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSave(value);
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className={`${editFieldClass} font-sans ${textSize} text-foreground`}
+          />
+          <EditControls onSave={() => onSave(value)} onCancel={onCancelEdit} />
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            aria-label="purchased"
+            onClick={onCheck}
+            className="size-[13px] shrink-0 rounded-[2px] border border-muted/50"
+          />
+          <span
+            {...gesture}
+            className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
+              struck ? "text-muted line-through" : "text-foreground"
+            }`}
+          >
+            {b.title}
+          </span>
+          <button
+            type="button"
+            aria-label="delete"
+            onClick={onRemove}
+            className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+          >
+            ×
+          </button>
+        </>
+      )}
     </div>
   );
 }
