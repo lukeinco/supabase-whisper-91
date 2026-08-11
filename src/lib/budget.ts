@@ -145,3 +145,24 @@ export function money(n: number): string {
 export function pct(n: number): string {
   return `${Math.round(n * 100)}%`;
 }
+
+/** This month's lines for one category, newest first. */
+export function linesForCategory(
+  lines: BudgetLine[],
+  prefix: string,
+  categoryId: string,
+): BudgetLine[] {
+  return lines
+    .filter((l) => l.category_id === categoryId && l.ymd?.startsWith(prefix))
+    .sort((a, b) => (b.ymd ?? "").localeCompare(a.ymd ?? ""));
+}
+
+const shortMonthFmt = new Intl.DateTimeFormat("en-US", { month: "short" });
+
+/** "aug 8" */
+export function shortDate(ymd: string | null): string {
+  if (!ymd) return "";
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  return `${shortMonthFmt.format(new Date(Date.UTC(y, m - 1, 1))).toLowerCase()} ${d}`;
+}
