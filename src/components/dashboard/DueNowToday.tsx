@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { useDashboardSync } from "@/lib/use-dashboard-sync";
+import { useVisitCompleted } from "@/lib/visit-completed";
 import { dueLabel, isDueNow, useDenverToday } from "@/lib/denver";
 import { normalizeTodos, type Todo } from "@/lib/todos";
 
@@ -18,22 +20,13 @@ export function DueNowToday({ secret, dense = false, onUnauthorized }: Props) {
   const today = useDenverToday();
   const [todos, setTodos] = useState<Todo[] | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    getState(secret)
-      .then((state) => {
-        if (!active) return;
-        setTodos(normalizeTodos(state));
-      })
-      .catch((e: unknown) => {
-        if (!active) return;
-        if (e instanceof UnauthorizedError) onUnauthorized?.();
-        setTodos([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [secret, onUnauthorized]);
+  const done = useVisitCompleted<Todo>();
+
+  useDashboardSync(
+    secret,
+    useCallback((state: DashboardState) => setTodos(normalizeTodos(state)), []),
+    onUnauthorized,
+  );
 
   const send = useCallback(
     (action: string, payload: Record<string, unknown>) => {
@@ -44,7 +37,8 @@ export function DueNowToday({ secret, dense = false, onUnauthorized }: Props) {
     [secret, onUnauthorized],
   );
 
-  const due = (todos ?? [])
+  const due = done
+    .merge(todos ?? [])
     .filter((t) => isDueNow(t.due_ymd, today))
     .sort((a, b) => (a.due_ymd ?? "").localeCompare(b.due_ymd ?? ""));
 
@@ -54,14 +48,19 @@ export function DueNowToday({ secret, dense = false, onUnauthorized }: Props) {
   const textSize = dense ? "text-[14px]" : "text-[15px]";
 
   function complete(t: Todo) {
-    setTodos((prev) => (prev ?? []).filter((x) => x.id !== t.id));
+    if (done.has(t.id)) {
+      done.unmark(t.id);
+      send("uncompleted", { id: t.id });
+      return;
+    }
+    done.mark(t, (todos ?? []).findIndex((x) => x.id === t.id));
     send("completed", { id: t.id });
     toast("completed", {
       duration: 5000,
       action: {
         label: "undo",
         onClick: () => {
-          setTodos((prev) => [...(prev ?? []), t]);
+          done.unmark(t.id);
           send("uncompleted", { id: t.id });
         },
       },
@@ -82,7 +81,11 @@ export function DueNowToday({ secret, dense = false, onUnauthorized }: Props) {
             onClick={() => complete(t)}
             className="size-[13px] shrink-0 rounded-[2px] border border-muted/50"
           />
-          <span className={`min-w-0 flex-1 truncate font-sans ${textSize} text-foreground`}>
+          <span
+            className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
+              done.has(t.id) ? "text-muted line-through" : "text-foreground"
+            }`}
+          >
             {t.title}
           </span>
           {t.due_ymd ? (

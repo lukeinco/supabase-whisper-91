@@ -128,8 +128,8 @@ export async function mutate<T = unknown>(
       method: "POST",
       body: JSON.stringify({ entity, action, payload }),
     });
-    // Reconcile: pull the authoritative state back into the cache.
-    void refreshState(secret);
+    // No refetch on success: callers update the item in place with what the
+    // mutation returned. A full refetch would remount every row.
     return res;
   } catch (e) {
     if (e instanceof UnauthorizedError) {
@@ -141,6 +141,7 @@ export async function mutate<T = unknown>(
     void refreshState(secret);
     throw e;
   }
+
 }
 
 

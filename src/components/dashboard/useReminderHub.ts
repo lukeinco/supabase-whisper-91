@@ -139,13 +139,13 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
           fireMs: new Date(fireAt).getTime(),
         } as Reminder,
       ]);
-      mutate(secret, "reminder", "created", { title: clean, fire_at: fireAt })
-        .then(() => load())
-        .catch((e: unknown) => {
+      mutate(secret, "reminder", "created", { title: clean, fire_at: fireAt }).catch(
+        (e: unknown) => {
           if (e instanceof UnauthorizedError) onUnauthorized?.();
-        });
+        },
+      );
     },
-    [secret, onUnauthorized, load],
+    [secret, onUnauthorized],
   );
 
 

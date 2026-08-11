@@ -80,7 +80,8 @@ function Index() {
 
 function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthorized: () => void }) {
   const [overlay, setOverlay] = useState<OverlayMode>(null);
-  const version = useStateVersion();
+
+
 
   useEffect(() => {
     const onFocus = () => void refreshState(secret);
@@ -107,7 +108,7 @@ function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthoriz
       />
       <CaptureBar secret={secret} />
       <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
-        <DesktopGrid key={version} secret={secret} onUnauthorized={onUnauthorized} />
+        <DesktopGrid secret={secret} onUnauthorized={onUnauthorized} />
       </main>
 
       <CommandOverlay secret={secret} mode={overlay} onClose={() => setOverlay(null)} />

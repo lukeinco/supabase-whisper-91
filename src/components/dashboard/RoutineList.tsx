@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Square, SquareCheck } from "lucide-react";
-import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { EmptyAction } from "./primitives";
 import { useDenverToday } from "@/lib/denver";
 import {
@@ -22,23 +23,14 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
   const [ticks, setTicks] = useState<RoutineTicks>({});
   const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    getState(secret)
-      .then((state) => {
-        if (!active) return;
-        setRoutines(normalizeRoutines(state));
-        setTicks(normalizeRoutineTicks(state));
-      })
-      .catch((e: unknown) => {
-        if (!active) return;
-        if (e instanceof UnauthorizedError) onUnauthorized?.();
-        setRoutines([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [secret, onUnauthorized]);
+  useDashboardSync(
+    secret,
+    useCallback((state: DashboardState) => {
+      setRoutines(normalizeRoutines(state));
+      setTicks(normalizeRoutineTicks(state));
+    }, []),
+    onUnauthorized,
+  );
 
   const send = useCallback(
     (action: string, payload: Record<string, unknown>) => {

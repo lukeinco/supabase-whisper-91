@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { useDashboardSync } from "@/lib/use-dashboard-sync";
+import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction, focusCapture } from "./primitives";
 import {
   matchBudgetCategory,
@@ -34,24 +36,17 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
   const [pending, setPending] = useState<Record<string, Pending>>({});
   const timers = useRef<Record<string, number>>({});
 
-  useEffect(() => {
-    let active = true;
-    getState(secret)
-      .then((state) => {
-        if (!active) return;
-        setBudgetCategories(normalizeBudgetCategories(state));
-        setCategories(normalizeBuyCategories(state));
-        setItems(normalizeBuyItems(state));
-      })
-      .catch((e: unknown) => {
-        if (!active) return;
-        if (e instanceof UnauthorizedError) onUnauthorized?.();
-        setItems([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [secret, onUnauthorized]);
+  const done = useVisitCompleted<BuyItem>();
+
+  useDashboardSync(
+    secret,
+    useCallback((state: DashboardState) => {
+      setBudgetCategories(normalizeBudgetCategories(state));
+      setCategories(normalizeBuyCategories(state));
+      setItems(normalizeBuyItems(state));
+    }, []),
+    onUnauthorized,
+  );
 
   useEffect(() => {
     const t = timers.current;
@@ -82,13 +77,15 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
     () =>
       categories.map((category) => ({
         category,
-        items: (items ?? [])
+        items: done
+          .merge(items ?? [])
           .filter((b) => b.category_id === category.id)
           .sort((a, b) => a.position - b.position),
       })),
-    [items, categories],
+    [items, categories, done],
   );
 
+  /** Close the amount row. The item itself stays put, struck through. */
   function drop(id: string) {
     const timer = timers.current[id];
     if (timer) clearTimeout(timer);
@@ -98,12 +95,17 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
       delete next[id];
       return next;
     });
-    setItems((prev) => (prev ?? []).filter((x) => x.id !== id));
   }
 
   /** Checking off never blocks: cross out now, ask for the amount after. */
   function check(b: BuyItem) {
     if (pending[b.id]) return;
+    if (done.has(b.id)) {
+      done.unmark(b.id);
+      send("edited", { id: b.id, purchased_at: null });
+      return;
+    }
+    done.mark(b, (items ?? []).findIndex((x) => x.id === b.id));
     const cat = categories.find((c) => c.id === b.category_id);
     setPending((p) => ({
       ...p,
@@ -114,9 +116,8 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
       },
     }));
     timers.current[b.id] = window.setTimeout(() => {
-      setPending((p) => (p[b.id] ? { ...p, [b.id]: { ...p[b.id]!, fading: true } } : p));
       send("purchased", { id: b.id });
-      window.setTimeout(() => drop(b.id), 220);
+      drop(b.id);
     }, 5000);
   }
 
@@ -294,10 +295,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                 list.map((b) => {
                   const p = pending[b.id];
                   return (
-                    <div
-                      key={b.id}
-                      className={p?.fading ? "opacity-0 transition-opacity duration-200" : ""}
-                    >
+                    <div key={b.id}>
                       <div
                         className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
                       >
@@ -322,8 +320,8 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                           <button
                             type="button"
                             onClick={() => setEditing(b.id)}
-                            className={`min-w-0 flex-1 truncate text-left font-sans ${textSize} text-foreground ${
-                              p ? "text-muted line-through" : ""
+                            className={`min-w-0 flex-1 truncate text-left font-sans ${textSize} ${
+                              p || done.has(b.id) ? "text-muted line-through" : "text-foreground"
                             }`}
                           >
                             {b.title}
@@ -340,7 +338,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                       </div>
 
                       {p ? (
-                        <div className="slide-row flex h-[30px] w-full min-w-0 items-center gap-2 border-b border-border px-4">
+                        <div className="flex h-[30px] w-full min-w-0 items-center gap-2 border-b border-border px-4">
                           <span className="font-mono text-[11px] text-muted">$</span>
                           <input
                             autoFocus
