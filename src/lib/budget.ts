@@ -24,10 +24,13 @@ export type BudgetCat = {
 };
 
 export type BudgetLine = {
+  id: string | null;
   category_id: string | null;
   amount: number;
+  label: string;
   ymd: string | null;
 };
+
 
 export type QueueCard = {
   id: string;
@@ -65,10 +68,13 @@ export function normalizeBudgetLines(state: unknown): BudgetLine[] {
       const r = l as Raw;
       if (r["deleted_at"]) return null;
       return {
+        id: str(r["id"]),
         category_id: str(r["budget_category_id"]) ?? str(r["category_id"]) ?? str(r["category"]),
         amount: num(r["amount"]),
+        label: str(r["label"]) ?? str(r["title"]) ?? str(r["note"]) ?? "",
         ymd: toDenverYMD(str(r["spent_at"]) ?? str(r["occurred_at"]) ?? str(r["created_at"])),
       } satisfies BudgetLine;
+
     })
     .filter((l): l is BudgetLine => l !== null);
 }
@@ -138,4 +144,25 @@ export function money(n: number): string {
 
 export function pct(n: number): string {
   return `${Math.round(n * 100)}%`;
+}
+
+/** This month's lines for one category, newest first. */
+export function linesForCategory(
+  lines: BudgetLine[],
+  prefix: string,
+  categoryId: string,
+): BudgetLine[] {
+  return lines
+    .filter((l) => l.category_id === categoryId && l.ymd?.startsWith(prefix))
+    .sort((a, b) => (b.ymd ?? "").localeCompare(a.ymd ?? ""));
+}
+
+const shortMonthFmt = new Intl.DateTimeFormat("en-US", { month: "short" });
+
+/** "aug 8" */
+export function shortDate(ymd: string | null): string {
+  if (!ymd) return "";
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return "";
+  return `${shortMonthFmt.format(new Date(Date.UTC(y, m - 1, 1))).toLowerCase()} ${d}`;
 }
