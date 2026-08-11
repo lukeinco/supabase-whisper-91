@@ -1,10 +1,14 @@
-export const BUY_CATEGORIES = ["grocery", "hardware", "household"] as const;
-export type BuyCategory = (typeof BUY_CATEGORIES)[number];
+export type BuyCategory = {
+  id: string;
+  name: string;
+  sort_order: number;
+  default_budget_category_id: string | null;
+};
 
 export type BuyItem = {
   id: string;
   title: string;
-  category: BuyCategory;
+  category_id: string | null;
   position: number;
 };
 
@@ -19,9 +23,25 @@ function str(v: unknown): string | null {
   return typeof v === "string" && v.length > 0 ? v : null;
 }
 
-function toCategory(v: unknown): BuyCategory {
-  const s = (str(v) ?? "").toLowerCase();
-  return (BUY_CATEGORIES as readonly string[]).includes(s) ? (s as BuyCategory) : "grocery";
+export function normalizeBuyCategories(state: unknown): BuyCategory[] {
+  const s = state as Raw | null;
+  const raw = s?.["buyCategories"] ?? s?.["buy_categories"];
+  const list = Array.isArray(raw) ? raw : [];
+  return list
+    .map((c, i) => {
+      const r = c as Raw;
+      const id = str(r["id"]);
+      if (!id) return null;
+      if (r["deleted_at"] || r["archived_at"]) return null;
+      return {
+        id,
+        name: str(r["name"]) ?? "category",
+        sort_order: typeof r["sort_order"] === "number" ? (r["sort_order"] as number) : i,
+        default_budget_category_id: str(r["default_budget_category_id"]),
+      } satisfies BuyCategory;
+    })
+    .filter((c): c is BuyCategory => c !== null)
+    .sort((a, b) => a.sort_order - b.sort_order);
 }
 
 export function normalizeBuyItems(state: unknown): BuyItem[] {
@@ -37,7 +57,7 @@ export function normalizeBuyItems(state: unknown): BuyItem[] {
       return {
         id,
         title: str(r["title"]) ?? str(r["text"]) ?? "",
-        category: toCategory(r["category"] ?? r["buy_category"]),
+        category_id: str(r["category_id"]) ?? str(r["buy_category_id"]),
         position: typeof r["position"] === "number" ? (r["position"] as number) : i,
       } satisfies BuyItem;
     })
@@ -59,11 +79,14 @@ export function normalizeBudgetCategories(state: unknown): BudgetCategory[] {
     .filter((c): c is BudgetCategory => c !== null);
 }
 
-/** Match a buy category to a budget category by name. */
+/** Budget category for a buy category: explicit default, else name match. */
 export function matchBudgetCategory(
-  category: BuyCategory,
+  category: BuyCategory | undefined,
   budgetCategories: BudgetCategory[],
 ): string | null {
-  const hit = budgetCategories.find((c) => c.name.trim().toLowerCase() === category);
+  if (!category) return budgetCategories[0]?.id ?? null;
+  if (category.default_budget_category_id) return category.default_budget_category_id;
+  const name = category.name.trim().toLowerCase();
+  const hit = budgetCategories.find((c) => c.name.trim().toLowerCase() === name);
   return hit?.id ?? budgetCategories[0]?.id ?? null;
 }
