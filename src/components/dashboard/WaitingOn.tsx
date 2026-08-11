@@ -162,6 +162,14 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
             }}
             className={`w-[90px] min-w-0 shrink-0 bg-transparent font-sans ${textSize} text-muted placeholder:text-muted outline-none`}
           />
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={commitAdd}
+            className="shrink-0 font-mono text-[11px] text-foreground"
+          >
+            save
+          </button>
         </div>
       ) : (
         <button
