@@ -54,7 +54,8 @@ export function BudgetView({
   const [cats, setCats] = useState<BudgetCat[] | null>(null);
   const [lines, setLines] = useState<BudgetLine[]>([]);
   const [cards, setCards] = useState<QueueCard[]>([]);
-  const [editing, setEditing] = useState<string | null>(null);
+  const edit = useEditing();
+  const editing = edit.editing;
   const [draft, setDraft] = useState<Draft>({ name: "", amount: "", spread: true });
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -94,12 +95,12 @@ export function BudgetView({
 
   function startEdit(c: BudgetCat) {
     setAdding(false);
-    setEditing(c.id);
+    edit.begin(c.id);
     setDraft({ name: c.name, amount: String(c.monthly_budget || ""), spread: c.spread });
   }
 
   function toggleExpand(id: string) {
-    setEditing(null);
+    edit.end();
     setEntry({ amount: "", label: "" });
     setExpanded((prev) => (prev === id ? null : id));
   }
@@ -150,7 +151,7 @@ export function BudgetView({
       monthly_budget: Number(draft.amount.replace(/[^0-9.]/g, "")) || 0,
       spread: draft.spread,
     };
-    setEditing(null);
+    edit.end();
     setAdding(false);
     if (!payload.name) return;
     // Update in place; no refetch, which would remount every row.
@@ -222,7 +223,7 @@ export function BudgetView({
         <button
           type="button"
           onClick={() => {
-            setEditing(null);
+            edit.end();
             setAdding(false);
           }}
           className="font-mono text-[11px] text-muted"
@@ -259,7 +260,7 @@ export function BudgetView({
             const ratio = c.monthly_budget > 0 ? sp / c.monthly_budget : 0;
             if (editing === c.id) {
               return (
-                <li key={c.id} className="border-t border-border">
+                <li key={c.id} ref={edit.editRef} className="border-t border-border">
                   {editor(c.id)}
                 </li>
               );
@@ -281,26 +282,11 @@ export function BudgetView({
                   className={`w-full cursor-pointer px-4 ${dense ? "py-2" : "py-3"}`}
                 >
                   <div className="flex w-full items-baseline justify-between gap-3 text-left">
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEdit(c);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          startEdit(c);
-                        }
-                      }}
-                      className={`min-w-0 flex-1 truncate font-sans text-[15px] ${
-                        over ? "text-accent" : "text-foreground"
-                      }`}
-                    >
-                      {c.name}
-                    </span>
+                    <CategoryName
+                      name={c.name}
+                      over={over}
+                      onEnterEdit={() => startEdit(c)}
+                    />
                     <span
                       className={`shrink-0 font-mono text-[12px] ${
                         over ? "text-accent" : "text-muted"
@@ -398,7 +384,7 @@ export function BudgetView({
         <button
           type="button"
           onClick={() => {
-            setEditing(null);
+            edit.end();
             setAdding(true);
             setDraft({ name: "", amount: "", spread: true });
           }}
@@ -426,5 +412,27 @@ export function BudgetView({
         </ul>
       ) : null}
     </div>
+  );
+}
+
+function CategoryName({
+  name,
+  over,
+  onEnterEdit,
+}: {
+  name: string;
+  over: boolean;
+  onEnterEdit: () => void;
+}) {
+  const gesture = useEditGesture(onEnterEdit);
+  return (
+    <span
+      {...gesture}
+      className={`min-w-0 flex-1 truncate font-sans text-[15px] ${
+        over ? "text-accent" : "text-foreground"
+      }`}
+    >
+      {name}
+    </span>
   );
 }
