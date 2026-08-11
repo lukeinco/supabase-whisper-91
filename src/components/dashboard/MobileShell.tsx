@@ -16,6 +16,7 @@ import { WaitingOn } from "./WaitingOn";
 import { Scratchpad } from "./Scratchpad";
 import { NextReminder } from "./NextReminder";
 import { ReviewQueue } from "./ReviewQueue";
+import { ReminderList } from "./ReminderList";
 import { useReminderHub } from "./useReminderHub";
 import { AskClaude } from "./AskClaude";
 import { CommandOverlay, type OverlayMode } from "./CommandOverlay";
@@ -38,6 +39,7 @@ export function MobileShell({ secret }: { secret: string }) {
   const ids = TAB_WIDGETS[tab];
   const swipeStart = useRef<number | null>(null);
   const panStart = useRef<{ x: number; y: number } | null>(null);
+  const mainRef = useRef<HTMLElement>(null);
   const [overlay, setOverlay] = useState<OverlayMode>(null);
 
   useShortcuts({
@@ -55,6 +57,7 @@ export function MobileShell({ secret }: { secret: string }) {
     <div className="flex h-[100dvh] w-full flex-col overflow-hidden">
       <DashboardHeader showWeather={false} />
       <main
+        ref={mainRef}
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4"
         onTouchStart={(e) => {
           swipeStart.current = tab === "do" ? (e.touches[0]?.clientY ?? null) : null;
@@ -67,7 +70,9 @@ export function MobileShell({ secret }: { secret: string }) {
           const start = panStart.current;
           panStart.current = null;
           const to = e.changedTouches[0]?.clientY;
-          if (from != null && to != null && from - to > 80 && from > window.innerHeight * 0.6) {
+          const el = mainRef.current;
+          const atBottom = el ? el.scrollTop + el.clientHeight >= el.scrollHeight - 8 : false;
+          if (from != null && to != null && from - to > 60 && atBottom) {
             setQueueOpen(true);
             return;
           }
@@ -125,13 +130,14 @@ export function MobileShell({ secret }: { secret: string }) {
           </div>
         ) : null}
         {tab === "do" ? (
-          <button
-            type="button"
-            onClick={() => setQueueOpen(true)}
-            className="mt-4 w-full rounded-[6px] border border-muted/25 py-2 font-mono text-[11px] text-muted"
-          >
-            review queue · {hub.count}
-          </button>
+          <div className="mt-4 flex flex-col gap-4">
+            <Widget label="reminders">
+              <ReminderList hub={hub} />
+            </Widget>
+            <p className="pb-2 text-center font-mono text-[11px] text-muted">
+              swipe up for review queue · {hub.count}
+            </p>
+          </div>
         ) : null}
       </main>
       <div className="shrink-0">
