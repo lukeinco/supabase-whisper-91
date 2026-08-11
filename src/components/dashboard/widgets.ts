@@ -4,6 +4,7 @@ export type WidgetId =
   | "to-do"
   | "to-buy"
   | "budget"
+  | "income"
   | "waiting-on"
   | "scratchpad"
   | "reminders"
@@ -21,6 +22,7 @@ export const WIDGETS: WidgetDef[] = [
   { id: "to-do", label: "to-do", empty: "nothing to do" },
   { id: "to-buy", label: "to-buy", empty: "nothing to buy" },
   { id: "budget", label: "budget", empty: "no spending yet" },
+  { id: "income", label: "income", empty: "no income yet" },
   { id: "waiting-on", label: "waiting on", empty: "not waiting on anything" },
   { id: "scratchpad", label: "scratchpad", empty: "empty" },
   { id: "reminders", label: "reminders", empty: "no reminders — add one" },
@@ -38,6 +40,7 @@ export const DEFAULT_LAYOUT = [
   { i: "reminders", x: 4, y: 12, w: 4, h: 6, minW: 3, minH: 4 },
   // ~20x10 cells at 16px, in 100px columns and 28px rows.
   { i: "life", x: 8, y: 12, w: 4, h: 7, minW: 3, minH: 7 },
+  { i: "income", x: 0, y: 19, w: 4, h: 6, minW: 3, minH: 4 },
 ];
 
 export const ROW_HEIGHT = 28;

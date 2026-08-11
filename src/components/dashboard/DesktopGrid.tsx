@@ -97,6 +97,8 @@ export function DesktopGrid({
               <LoadingLine />
             ) : w.id === "budget" ? (
               <BudgetView secret={secret} dense onUnauthorized={onUnauthorized} />
+            ) : w.id === "income" ? (
+              <BudgetView secret={secret} dense kind="income" onUnauthorized={onUnauthorized} />
             ) : w.id === "today" ? (
               <>
                 {hub.next ? (
