@@ -50,22 +50,94 @@ export type DashboardState = {
 } | null;
 
 /** GET /functions/v1/state — everything the dashboard renders, in one call. */
-export function getState(secret: string) {
-  return call<DashboardState>("state", secret, { method: "GET" });
+export function getState(secret: string): Promise<DashboardState> {
+  const cached = readCache();
+  if (cached !== null) {
+    void refreshState(secret);
+    return Promise.resolve(cached);
+  }
+  return fetchState(secret);
+}
+
+let inflight: Promise<DashboardState> | null = null;
+
+/** Cloud is the source of truth: overwrite memory + cache with what it returns. */
+function fetchState(secret: string): Promise<DashboardState> {
+  inflight ??= call<DashboardState>("state", secret, { method: "GET" })
+    .then((state) => {
+      writeCache(state);
+      setOffline(false);
+      return state;
+    })
+    .finally(() => {
+      inflight = null;
+    });
+  return inflight;
+}
+
+let refreshing: Promise<void> | null = null;
+
+/**
+ * Background refresh. Resolves fresh cloud state into the cache and bumps the
+ * data version so mounted views re-read it. Never throws: a 401 clears the
+ * cache and surfaces through the next foreground call; any other failure
+ * flips the offline line on while cached data keeps rendering.
+ */
+export function refreshState(secret: string): Promise<void> {
+  refreshing ??= (async () => {
+    const before = JSON.stringify(readCache());
+    try {
+      const fresh = await call<DashboardState>("state", secret, { method: "GET" });
+      writeCache(fresh);
+      setOffline(false);
+      if (JSON.stringify(fresh) !== before) bumpVersion();
+    } catch (e) {
+      if (e instanceof UnauthorizedError) {
+        clearCache();
+        unauthorized = true;
+        bumpVersion();
+        return;
+      }
+      setOffline(true);
+    } finally {
+      refreshing = null;
+    }
+  })();
+  return refreshing;
+}
+
+let unauthorized = false;
+export function isUnauthorized() {
+  return unauthorized;
 }
 
 /** POST /functions/v1/mutate — every write. */
-export function mutate<T = unknown>(
+export async function mutate<T = unknown>(
   secret: string,
   entity: string,
   action: string,
   payload: unknown = {},
-) {
-  return call<T>("mutate", secret, {
-    method: "POST",
-    body: JSON.stringify({ entity, action, payload }),
-  });
+): Promise<T> {
+  try {
+    const res = await call<T>("mutate", secret, {
+      method: "POST",
+      body: JSON.stringify({ entity, action, payload }),
+    });
+    // Reconcile: pull the authoritative state back into the cache.
+    void refreshState(secret);
+    return res;
+  } catch (e) {
+    if (e instanceof UnauthorizedError) {
+      clearCache();
+      throw e;
+    }
+    // Never silently drop a write: tell the user, then restore from cloud.
+    toast("didn't save — try again");
+    void refreshState(secret);
+    throw e;
+  }
 }
+
 
 export async function getLayout(secret: string): Promise<{ layout: WidgetLayout[] | null }> {
   const state = await getState(secret);
