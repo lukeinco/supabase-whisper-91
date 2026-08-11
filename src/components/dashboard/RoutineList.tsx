@@ -148,3 +148,76 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
     </div>
   );
 }
+
+function RoutineRow({
+  r,
+  done,
+  Icon,
+  rowH,
+  textSize,
+  editing,
+  editRef,
+  onEnterEdit,
+  onCancelEdit,
+  onSave,
+  onToggle,
+}: {
+  r: Routine;
+  done: boolean;
+  Icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  rowH: string;
+  textSize: string;
+  editing: boolean;
+  editRef?: (el: HTMLElement | null) => void;
+  onEnterEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (value: string) => void;
+  onToggle: () => void;
+}) {
+  const gesture = useEditGesture(onEnterEdit);
+  const [value, setValue] = useState(r.title);
+
+  return (
+    <div
+      ref={editing ? editRef : undefined}
+      className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+    >
+      {editing ? (
+        <>
+          <input
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSave(value);
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className={`${editFieldClass} font-sans ${textSize} text-foreground`}
+          />
+          <EditControls onSave={() => onSave(value)} onCancel={onCancelEdit} />
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            aria-label={done ? "untick" : "tick"}
+            onClick={onToggle}
+            className="shrink-0 text-muted"
+          >
+            <Icon size={19} strokeWidth={1.5} />
+          </button>
+          <span
+            {...gesture}
+            onDoubleClickCapture={() => setValue(r.title)}
+            className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
+              done ? "text-muted line-through" : "text-foreground"
+            }`}
+          >
+            {r.title}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
