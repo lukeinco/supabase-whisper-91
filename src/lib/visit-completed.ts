@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 /**
  * Items completed during this visit stay on screen, in place, until the view
@@ -52,5 +52,5 @@ export function useVisitCompleted<T extends { id: string }>() {
     [entries],
   );
 
-  return { mark, unmark, has, merge };
+  return useMemo(() => ({ mark, unmark, has, merge }), [mark, unmark, has, merge]);
 }
