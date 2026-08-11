@@ -18,7 +18,7 @@ export function EmptyAction({
     <span
       role="link"
       tabIndex={0}
-      onClick={onClick}
+      onClick={() => onClick()}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
