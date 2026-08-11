@@ -29,12 +29,15 @@ const TAB_WIDGETS: Record<TabId, string[]> = {
   notes: ["scratchpad", "waiting-on"],
 };
 
+const TAB_ORDER: TabId[] = ["today", "do", "buy", "budget", "notes"];
+
 export function MobileShell({ secret }: { secret: string }) {
   const [tab, setTab] = useState<TabId>("today");
   const [queueOpen, setQueueOpen] = useState(false);
   const hub = useReminderHub(secret);
   const ids = TAB_WIDGETS[tab];
   const swipeStart = useRef<number | null>(null);
+  const panStart = useRef<{ x: number; y: number } | null>(null);
   const [overlay, setOverlay] = useState<OverlayMode>(null);
 
   useShortcuts({
@@ -55,14 +58,28 @@ export function MobileShell({ secret }: { secret: string }) {
         className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4"
         onTouchStart={(e) => {
           swipeStart.current = tab === "do" ? (e.touches[0]?.clientY ?? null) : null;
+          const t = e.touches[0];
+          panStart.current = t ? { x: t.clientX, y: t.clientY } : null;
         }}
         onTouchEnd={(e) => {
           const from = swipeStart.current;
           swipeStart.current = null;
+          const start = panStart.current;
+          panStart.current = null;
           const to = e.changedTouches[0]?.clientY;
           if (from != null && to != null && from - to > 80 && from > window.innerHeight * 0.6) {
             setQueueOpen(true);
+            return;
           }
+          const end = e.changedTouches[0];
+          if (!start || !end) return;
+          const dx = end.clientX - start.x;
+          const dy = end.clientY - start.y;
+          if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+          const order = TAB_ORDER;
+          const i = order.indexOf(tab);
+          const next = dx < 0 ? order[i + 1] : order[i - 1];
+          if (next) setTab(next);
         }}
       >
         {tab === "today" ? (
