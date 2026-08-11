@@ -68,10 +68,13 @@ export function normalizeBudgetLines(state: unknown): BudgetLine[] {
       const r = l as Raw;
       if (r["deleted_at"]) return null;
       return {
+        id: str(r["id"]),
         category_id: str(r["budget_category_id"]) ?? str(r["category_id"]) ?? str(r["category"]),
         amount: num(r["amount"]),
+        label: str(r["label"]) ?? str(r["title"]) ?? str(r["note"]) ?? "",
         ymd: toDenverYMD(str(r["spent_at"]) ?? str(r["occurred_at"]) ?? str(r["created_at"])),
       } satisfies BudgetLine;
+
     })
     .filter((l): l is BudgetLine => l !== null);
 }
