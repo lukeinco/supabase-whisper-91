@@ -233,7 +233,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     const id = `tmp-${Date.now()}`;
     setFolders((prev) => [
       ...prev.filter((f) => f.id !== UNFILED.id),
-      { id, name: clean },
+      { id, name: clean, sort_order },
       UNFILED,
     ]);
     sendFolder("created", { name: clean, sort_order });
