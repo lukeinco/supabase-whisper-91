@@ -166,3 +166,8 @@ export function shortDate(ymd: string | null): string {
   if (!y || !m || !d) return "";
   return `${shortMonthFmt.format(new Date(Date.UTC(y, m - 1, 1))).toLowerCase()} ${d}`;
 }
+
+/** "yyyy-mm-dd" → an ISO timestamp at midday Denver, so the day never shifts. */
+export function ymdToISO(ymd: string): string {
+  return `${ymd}T18:00:00.000Z`;
+}
