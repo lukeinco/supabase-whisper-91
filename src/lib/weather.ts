@@ -8,14 +8,7 @@ export type Weather = {
   high: number;
   low: number;
   precip: number;
-  sunrise: string;
-  sunset: string;
 };
-
-function hhmm(iso: string): string {
-  const t = iso.split("T")[1] ?? "";
-  return t.slice(0, 5);
-}
 
 function coords(): Promise<{ lat: number; lon: number }> {
   return new Promise((resolve) => {
@@ -36,7 +29,7 @@ async function fetchWeather(lat: number, lon: number): Promise<Weather | null> {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&current=temperature_2m` +
-    `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
+    `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
     `&temperature_unit=fahrenheit&timezone=America%2FDenver&forecast_days=1`;
   const res = await fetch(url);
   if (!res.ok) return null;
@@ -46,26 +39,18 @@ async function fetchWeather(lat: number, lon: number): Promise<Weather | null> {
       temperature_2m_max?: number[];
       temperature_2m_min?: number[];
       precipitation_probability_max?: number[];
-      sunrise?: string[];
-      sunset?: string[];
     };
   };
   const d = j.daily;
   const temp = j.current?.temperature_2m;
   const high = d?.temperature_2m_max?.[0];
   const low = d?.temperature_2m_min?.[0];
-  const sunrise = d?.sunrise?.[0];
-  const sunset = d?.sunset?.[0];
-  if (temp === undefined || high === undefined || low === undefined || !sunrise || !sunset) {
-    return null;
-  }
+  if (temp === undefined || high === undefined || low === undefined) return null;
   return {
     temp: Math.round(temp),
     high: Math.round(high),
     low: Math.round(low),
     precip: Math.round(d?.precipitation_probability_max?.[0] ?? 0),
-    sunrise: hhmm(sunrise),
-    sunset: hhmm(sunset),
   };
 }
 
@@ -102,5 +87,5 @@ export function useWeather(): Weather | null {
 }
 
 export function formatWeather(w: Weather): string {
-  return `${w.temp}° · ${w.high}/${w.low} · rain ${w.precip}% · ${w.sunrise}–${w.sunset}`;
+  return `${w.temp}° · ${w.high}/${w.low} · rain ${w.precip}%`;
 }
