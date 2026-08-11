@@ -3,6 +3,11 @@
 // policies and no grants to anon/authenticated. The #k= secret is sent as the
 // x-app-secret header and the functions hold the service role key server-side.
 
+import { toast } from "sonner";
+import { bumpVersion, clearCache, readCache, setOffline, writeCache } from "./state-cache";
+
+
+
 const SUPABASE_URL = (
   (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ??
   "https://druggbmhwfqwomyjvpgc.supabase.co"
