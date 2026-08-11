@@ -24,10 +24,13 @@ export type BudgetCat = {
 };
 
 export type BudgetLine = {
+  id: string | null;
   category_id: string | null;
   amount: number;
+  label: string;
   ymd: string | null;
 };
+
 
 export type QueueCard = {
   id: string;
