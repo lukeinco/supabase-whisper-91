@@ -8,14 +8,67 @@ function str(v: unknown): string | null {
 
 /* ---------------------------------- routine --------------------------------- */
 
+export const TIME_OF_DAY = ["morning", "afternoon", "evening", "night"] as const;
+export type TimeOfDay = (typeof TIME_OF_DAY)[number];
+
+export const REPEAT_KINDS = ["daily", "every_n_days", "weekly", "nth_weekday_of_month"] as const;
+export type RepeatKind = (typeof REPEAT_KINDS)[number];
+
 export type Routine = {
   id: string;
   title: string;
   position: number;
+  start_date: string | null;
+  time_of_day: TimeOfDay;
+  repeat_kind: RepeatKind;
+  repeat_interval: number;
+  repeat_weekday: number;
+  repeat_nth: number;
+  due_today: boolean;
 };
 
 /** routine_id -> the Denver ymd it was ticked on. */
 export type RoutineTicks = Record<string, string>;
+
+export const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+/** Weekday index (Sun=0) of a "yyyy-mm-dd" string. */
+export function weekdayOf(ymd: string | null): number {
+  if (!ymd) return new Date().getDay();
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return new Date().getDay();
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+const ORDINALS: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", [-1]: "last" };
+
+/** "every day", "every 3 days", "every Thursday", "2nd Thursday" */
+export function scheduleLabel(r: Routine): string {
+  const day = WEEKDAYS[r.repeat_weekday] ?? WEEKDAYS[0];
+  switch (r.repeat_kind) {
+    case "every_n_days":
+      return r.repeat_interval > 1 ? `every ${r.repeat_interval} days` : "every day";
+    case "weekly":
+      return r.repeat_interval > 1 ? `every ${r.repeat_interval} weeks on ${day}` : `every ${day}`;
+    case "nth_weekday_of_month":
+      return `${ORDINALS[r.repeat_nth] ?? `${r.repeat_nth}th`} ${day}`;
+    default:
+      return "every day";
+  }
+}
+
+function int(v: unknown, fallback: number): number {
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : fallback;
+}
 
 export function normalizeRoutines(state: unknown): Routine[] {
   const s = state as Raw | null;
@@ -26,15 +79,26 @@ export function normalizeRoutines(state: unknown): Routine[] {
       const o = r as Raw;
       const id = str(o["id"]);
       if (!id || o["deleted_at"]) return null;
+      const start = (str(o["start_date"]) ?? "").slice(0, 10) || null;
+      const tod = str(o["time_of_day"]) as TimeOfDay | null;
+      const kind = str(o["repeat_kind"]) as RepeatKind | null;
       return {
         id,
         title: str(o["title"]) ?? str(o["name"]) ?? "",
         position: typeof o["position"] === "number" ? (o["position"] as number) : i,
+        start_date: start,
+        time_of_day: tod && TIME_OF_DAY.includes(tod) ? tod : "morning",
+        repeat_kind: kind && REPEAT_KINDS.includes(kind) ? kind : "daily",
+        repeat_interval: int(o["repeat_interval"], 1),
+        repeat_weekday: int(o["repeat_weekday"], weekdayOf(start)),
+        repeat_nth: int(o["repeat_nth"], 1),
+        due_today: o["due_today"] !== false,
       } satisfies Routine;
     })
     .filter((r): r is Routine => r !== null)
     .sort((a, b) => a.position - b.position);
 }
+
 
 export function normalizeRoutineTicks(state: unknown): RoutineTicks {
   const s = state as Raw | null;
