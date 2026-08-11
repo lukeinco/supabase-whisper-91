@@ -81,14 +81,28 @@ function Index() {
     if (isUnauthorized()) setDenied(true);
   }, [version]);
 
-
+  // Denver midnight: the day rolled over, so pull fresh state once.
+  const today = useDenverToday();
+  const firstDay = useRef(today);
+  useEffect(() => {
+    if (!secret) return;
+    if (firstDay.current === today) return;
+    firstDay.current = today;
+    void refreshState(secret);
+  }, [today, secret]);
 
   if (!ready) return <div className="min-h-[100dvh] bg-background" />;
   if (!secret || denied) return <NoKey />;
 
-  if (isMobile) return <MobileShell secret={secret} />;
-
-  return <DesktopShell secret={secret} onUnauthorized={onUnauthorized} />;
+  return (
+    <AppErrorBoundary>
+      {isMobile ? (
+        <MobileShell secret={secret} />
+      ) : (
+        <DesktopShell secret={secret} onUnauthorized={onUnauthorized} />
+      )}
+    </AppErrorBoundary>
+  );
 }
 
 function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthorized: () => void }) {
