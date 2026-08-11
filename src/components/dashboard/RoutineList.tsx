@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Square, SquareCheck, X } from "lucide-react";
 import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { EmptyAction } from "./primitives";
 import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
+import {
+  RoutineFrequencyIcon,
+  frequencyKindOf,
+  type FrequencyKind,
+} from "./RoutineFrequencyIcon";
 import { useDenverToday } from "@/lib/denver";
+
 import {
   normalizeRoutineTicks,
   normalizeRoutines,
