@@ -56,6 +56,7 @@ export function searchState(
       })),
   );
 
+  const buyCats = normalizeBuyCategories(state);
   push(
     "to-buy",
     normalizeBuyItems(state)
@@ -64,7 +65,7 @@ export function searchState(
         id: b.id,
         group: "to-buy" as const,
         title: b.title,
-        meta: b.category,
+        meta: buyCats.find((c) => c.id === b.category_id)?.name ?? null,
         tab: "buy" as TabId,
       })),
   );
