@@ -20,6 +20,7 @@ export default defineConfig({
         registerType: "autoUpdate",
         injectRegister: null,
         filename: "sw.js",
+        outDir: "dist/client",
         // The manifest is served dynamically from src/routes/manifest[.]webmanifest.ts
         // so it can carry the access secret in start_url.
         manifest: false,
