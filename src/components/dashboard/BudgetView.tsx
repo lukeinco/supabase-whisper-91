@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { getState, mutate, resultId, UnauthorizedError } from "@/lib/api";
 import { useStateVersion } from "@/lib/state-cache";
 import { useDenverToday } from "@/lib/denver";
 import {
@@ -15,12 +15,12 @@ import {
   spendByCategory,
   ymdToISO,
   type BudgetCat,
+  type BudgetKind,
   type BudgetLine,
   type QueueCard,
 } from "@/lib/budget";
-import { EmptyAction, EmptyLine, LoadingLine } from "./primitives";
+import { EmptyAction, LoadingLine } from "./primitives";
 import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
-
 
 type Draft = { name: string; amount: string; spread: boolean };
 
@@ -45,11 +45,14 @@ export function BudgetView({
   secret,
   dense = false,
   onUnauthorized,
+  kind = "expense",
 }: {
   secret: string;
   dense?: boolean;
   onUnauthorized?: () => void;
+  kind?: BudgetKind;
 }) {
+  const income = kind === "income";
   const today = useDenverToday();
   const month = monthInfo(today);
 
@@ -73,19 +76,30 @@ export function BudgetView({
     label: "",
     ymd: "",
   });
+  const [potential, setPotential] = useState<{ cat: string; label: string; amount: string } | null>(
+    null,
+  );
+  const [selling, setSelling] = useState<{ id: string; amount: string } | null>(null);
 
   const load = useCallback(() => {
     getState(secret)
       .then((state) => {
-        setCats(normalizeBudgetCats(state));
-        setLines(normalizeBudgetLines(state));
-        setCards(normalizeQueueCards(state, "budget"));
+        setCats(normalizeBudgetCats(state, kind));
+        // Merge, never clobber: rows created locally and not yet in the
+        // snapshot survive until the snapshot actually contains them.
+        setLines((prev) => {
+          const fresh = normalizeBudgetLines(state);
+          const known = new Set(fresh.map((l) => l.id));
+          const localOnly = prev.filter((l) => l.id?.startsWith("tmp-") && !known.has(l.id));
+          return [...fresh, ...localOnly];
+        });
+        setCards(income ? [] : normalizeQueueCards(state, "budget"));
       })
       .catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
         setCats([]);
       });
-  }, [secret, onUnauthorized]);
+  }, [secret, onUnauthorized, kind, income]);
 
   useEffect(load, [load]);
   const dataVersion = useStateVersion();
@@ -93,13 +107,17 @@ export function BudgetView({
     if (dataVersion > 0) load();
   }, [dataVersion, load]);
 
-  const spend = spendByCategory(lines, month.prefix);
-
+  const earned = lines.filter((l) => !l.pending);
+  const spend = spendByCategory(earned, month.prefix);
 
   if (cats === null) return <LoadingLine />;
 
   const totalSpent = cats.reduce((s, c) => s + (spend[c.id] ?? 0), 0);
   const totalBudget = cats.reduce((s, c) => s + c.monthly_budget, 0);
+  const catIds = new Set(cats.map((c) => c.id));
+  const pendingTotal = lines
+    .filter((l) => l.pending && l.category_id && catIds.has(l.category_id))
+    .reduce((s, l) => s + (l.potential_amount ?? 0), 0);
   const overage = cats.reduce((s, c) => {
     const sp = spend[c.id] ?? 0;
     return s + (c.monthly_budget > 0 && sp > c.monthly_budget ? sp - c.monthly_budget : 0);
@@ -115,32 +133,45 @@ export function BudgetView({
     edit.end();
     lineEdit.end();
     setEntry({ amount: "", label: "", ymd: "" });
+    setPotential(null);
+    setSelling(null);
     setExpanded((prev) => (prev === id ? null : id));
   }
 
   async function sendLine(action: string, payload: Record<string, unknown>) {
     try {
-      await mutate(secret, "budget_line", action, payload);
+      return await mutate(secret, "budget_line", action, payload);
     } catch (e) {
       if (e instanceof UnauthorizedError) onUnauthorized?.();
+      throw e;
     }
   }
 
   function removeLine(l: BudgetLine) {
-    if (!l.id) return;
+    if (!l.id || l.id.startsWith("tmp-")) return;
     const id = l.id;
     setLines((prev) => prev.filter((x) => x.id !== id));
-    void sendLine("deleted", { id });
+    void sendLine("deleted", { id }).catch(() => setLines((prev) => [...prev, l]));
     toast("deleted", {
       duration: 5000,
       action: {
         label: "undo",
         onClick: () => {
           setLines((prev) => [...prev, l]);
-          void sendLine("edited", { id, deleted_at: null });
+          void sendLine("edited", { id, deleted_at: null }).catch(() => undefined);
         },
       },
     });
+  }
+
+  /** Swap an optimistic row for the real one the server returned. */
+  function reconcile(tmpId: string, res: unknown) {
+    const realId = resultId(res);
+    setLines((prev) =>
+      realId
+        ? prev.map((x) => (x.id === tmpId ? { ...x, id: realId } : x))
+        : prev.filter((x) => x.id !== tmpId),
+    );
   }
 
   function addLine(categoryId: string) {
@@ -150,22 +181,81 @@ export function BudgetView({
     const ymd = entry.ymd || today;
     setEntry({ amount: "", label: "", ymd: "" });
     amountRef.current?.focus();
+    const tmpId = `tmp-${Date.now()}`;
     setLines((prev) => [
       ...prev,
-      { id: `tmp-${Date.now()}`, category_id: categoryId, amount, label, ymd },
+      {
+        id: tmpId,
+        category_id: categoryId,
+        amount,
+        label,
+        ymd,
+        potential_amount: null,
+        earned_at: income ? ymdToISO(ymd) : null,
+        pending: false,
+      },
     ]);
     void sendLine("created", {
       category_id: categoryId,
       amount,
       label,
-      spent_on: ymd,
-      spent_at: ymdToISO(ymd),
-    });
+      ...(income ? { earned_at: ymdToISO(ymd) } : { spent_on: ymd, spent_at: ymdToISO(ymd) }),
+    })
+      .then((res) => reconcile(tmpId, res))
+      .catch(() => {
+        setLines((prev) => prev.filter((x) => x.id !== tmpId));
+        setEntry({ amount: String(amount), label, ymd });
+      });
+  }
 
+  function addPotential(categoryId: string) {
+    if (!potential) return;
+    const amount = Number(potential.amount.replace(/[^0-9.]/g, ""));
+    const label = potential.label.trim();
+    if (!Number.isFinite(amount) || amount === 0 || !label) return;
+    setPotential({ cat: categoryId, label: "", amount: "" });
+    const tmpId = `tmp-${Date.now()}`;
+    setLines((prev) => [
+      ...prev,
+      {
+        id: tmpId,
+        category_id: categoryId,
+        amount: 0,
+        label,
+        ymd: today,
+        potential_amount: amount,
+        earned_at: null,
+        pending: true,
+      },
+    ]);
+    void sendLine("created", { category_id: categoryId, label, potential_amount: amount })
+      .then((res) => reconcile(tmpId, res))
+      .catch(() => {
+        setLines((prev) => prev.filter((x) => x.id !== tmpId));
+        setPotential({ cat: categoryId, label, amount: String(amount) });
+      });
+  }
+
+  function confirmSold(l: BudgetLine) {
+    if (!selling || !l.id) return;
+    const amount = Number(selling.amount.replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(amount) || amount === 0) return;
+    const id = l.id;
+    setSelling(null);
+    setLines((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? { ...x, amount, pending: false, earned_at: ymdToISO(today), ymd: today }
+          : x,
+      ),
+    );
+    void sendLine("earned", { id, amount }).catch(() => {
+      setLines((prev) => prev.map((x) => (x.id === id ? l : x)));
+    });
   }
 
   function startLineEdit(l: BudgetLine) {
-    if (!l.id) return;
+    if (!l.id || l.id.startsWith("tmp-")) return;
     lineEdit.begin(l.id);
     setLineDraft({ amount: String(l.amount || ""), label: l.label, ymd: l.ymd ?? "" });
   }
@@ -188,11 +278,13 @@ export function BudgetView({
       id,
       amount: Number.isFinite(amount) ? amount : l.amount,
       label,
-      ...(ymd ? { spent_on: ymd, spent_at: ymdToISO(ymd) } : {}),
-    });
+      ...(ymd
+        ? income
+          ? { earned_at: ymdToISO(ymd) }
+          : { spent_on: ymd, spent_at: ymdToISO(ymd) }
+        : {}),
+    }).catch(() => undefined);
   }
-
-
 
   async function save(id: string | null) {
     const payload = {
@@ -200,31 +292,48 @@ export function BudgetView({
       name: draft.name.trim(),
       monthly_budget: Number(draft.amount.replace(/[^0-9.]/g, "")) || 0,
       spread: draft.spread,
+      kind,
     };
     edit.end();
     setAdding(false);
     if (!payload.name) return;
-    // Update in place; no refetch, which would remount every row.
+    const tmpId = `tmp-${Date.now()}`;
     setCats((prev) =>
       id
         ? (prev ?? []).map((c) =>
             c.id === id
-              ? { ...c, name: payload.name, monthly_budget: payload.monthly_budget, spread: payload.spread }
+              ? {
+                  ...c,
+                  name: payload.name,
+                  monthly_budget: payload.monthly_budget,
+                  spread: payload.spread,
+                }
               : c,
           )
         : [
             ...(prev ?? []),
             {
-              id: `tmp-${Date.now()}`,
+              id: tmpId,
               name: payload.name,
               monthly_budget: payload.monthly_budget,
               spread: payload.spread,
-            } as (typeof prev extends (infer U)[] | null ? U : never),
+              position: (prev ?? []).length,
+              kind,
+            },
           ],
     );
     try {
-      await mutate(secret, "budget_category", id ? "edited" : "created", payload);
+      const res = await mutate(secret, "budget_category", id ? "edited" : "created", payload);
+      if (!id) {
+        const realId = resultId(res);
+        setCats((prev) =>
+          realId
+            ? (prev ?? []).map((c) => (c.id === tmpId ? { ...c, id: realId } : c))
+            : (prev ?? []).filter((c) => c.id !== tmpId),
+        );
+      }
     } catch (e) {
+      if (!id) setCats((prev) => (prev ?? []).filter((c) => c.id !== tmpId));
       if (e instanceof UnauthorizedError) onUnauthorized?.();
     }
   }
@@ -241,15 +350,21 @@ export function BudgetView({
       <input
         value={draft.amount}
         onChange={(e) => setDraft((d) => ({ ...d, amount: e.target.value }))}
-        placeholder="monthly amount"
+        placeholder={income ? "monthly target" : "monthly amount"}
         inputMode="decimal"
         className="w-full border-0 border-b border-border bg-transparent pb-1 font-mono text-[12px] text-foreground placeholder:text-muted focus:outline-none"
       />
       <div className="flex items-center gap-4">
-        {[
-          { v: true, label: "spread through month" },
-          { v: false, label: "comes in chunks" },
-        ].map((opt) => (
+        {(income
+          ? [
+              { v: true, label: "arrives steadily" },
+              { v: false, label: "arrives in chunks" },
+            ]
+          : [
+              { v: true, label: "spread through month" },
+              { v: false, label: "comes in chunks" },
+            ]
+        ).map((opt) => (
           <button
             key={opt.label}
             type="button"
@@ -288,24 +403,38 @@ export function BudgetView({
     <div className="w-full max-w-full">
       <div className="px-4 py-3">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="font-sans text-[16px] text-foreground">{month.name}</span>
-          <span className="shrink-0 font-mono text-[12px] text-muted">
-            {money(totalSpent)} / {money(totalBudget)}
-            {overage > 0 ? <span className="text-accent"> · {money(-overage)}</span> : null}
+          <span className="font-sans text-[16px] text-foreground">
+            {income ? `${month.name} — ${money(totalSpent)} received` : month.name}
           </span>
+          {income ? null : (
+            <span className="shrink-0 font-mono text-[12px] text-muted">
+              {money(totalSpent)} / {money(totalBudget)}
+              {overage > 0 ? <span className="text-accent"> · {money(-overage)}</span> : null}
+            </span>
+          )}
         </div>
-        <p className="pt-1 font-mono text-[11px] text-muted">
-          day {month.day} of {month.days}
-        </p>
+        {income ? (
+          pendingTotal > 0 ? (
+            <p className="pt-1 font-mono text-[11px] text-[#5A5F68]">
+              + {money(pendingTotal)} pending
+            </p>
+          ) : null
+        ) : (
+          <p className="pt-1 font-mono text-[11px] text-muted">
+            day {month.day} of {month.days}
+          </p>
+        )}
       </div>
 
       {cats.length === 0 && !adding ? (
-        <EmptyAction onClick={() => setAdding(true)}>no categories — add one</EmptyAction>
+        <EmptyAction onClick={() => setAdding(true)}>
+          {income ? "no income sources — add one" : "no categories — add one"}
+        </EmptyAction>
       ) : (
         <ul className="w-full">
           {cats.map((c) => {
             const sp = spend[c.id] ?? 0;
-            const over = c.monthly_budget > 0 && sp > c.monthly_budget;
+            const over = !income && c.monthly_budget > 0 && sp > c.monthly_budget;
             const remaining = c.monthly_budget - sp;
             const ratio = c.monthly_budget > 0 ? sp / c.monthly_budget : 0;
             if (editing === c.id) {
@@ -316,7 +445,10 @@ export function BudgetView({
               );
             }
             const isOpen = expanded === c.id;
-            const catLines = isOpen ? linesForCategory(lines, month.prefix, c.id) : [];
+            const catLines = isOpen ? linesForCategory(earned, month.prefix, c.id) : [];
+            const catPending = isOpen
+              ? lines.filter((l) => l.pending && l.category_id === c.id)
+              : [];
             return (
               <li key={c.id} className="w-full border-t border-border">
                 <div
@@ -332,24 +464,25 @@ export function BudgetView({
                   className={`w-full cursor-pointer px-4 ${dense ? "py-2" : "py-3"}`}
                 >
                   <div className="flex w-full items-baseline justify-between gap-3 text-left">
-                    <CategoryName
-                      name={c.name}
-                      over={over}
-                      onEnterEdit={() => startEdit(c)}
-                    />
+                    <CategoryName name={c.name} over={over} onEnterEdit={() => startEdit(c)} />
                     <span
                       className={`shrink-0 font-mono text-[12px] ${
                         over ? "text-accent" : "text-muted"
                       }`}
                     >
-                      {money(sp)} of {money(c.monthly_budget)} · {money(remaining)}
+                      {money(sp)} of {money(c.monthly_budget)} ·{" "}
+                      {income
+                        ? remaining > 0
+                          ? `${money(remaining)} to go`
+                          : "met"
+                        : money(remaining)}
                     </span>
                   </div>
                   <div className="pt-2">
                     <Bar ratio={ratio} over={over} tick={c.spread ? month.elapsedRatio : null} />
                   </div>
                   <p className="pt-1 font-mono text-[11px] text-muted">
-                    {pct(ratio)} spent
+                    {pct(ratio)} {income ? "received" : "spent"}
                     {c.spread ? ` · ${pct(month.elapsedRatio)} elapsed` : ""}
                   </p>
                 </div>
@@ -358,7 +491,7 @@ export function BudgetView({
                   <div className="w-full">
                     {catLines.length === 0 ? (
                       <p className="px-4 pb-1 font-mono text-[11px] text-muted">
-                        no spending this month
+                        {income ? "nothing received this month" : "no spending this month"}
                       </p>
                     ) : (
                       <ul className="w-full">
@@ -422,6 +555,70 @@ export function BudgetView({
                         })}
                       </ul>
                     )}
+
+                    {income && catPending.length > 0 ? (
+                      <ul className="w-full border-t border-dashed border-[#3A3F48]">
+                        {catPending.map((l) => (
+                          <li
+                            key={l.id ?? l.label}
+                            className="flex min-h-[34px] w-full items-center gap-3 px-4"
+                          >
+                            <span className="size-[6px] shrink-0 rounded-full bg-[#5A5F68]" />
+                            {selling && selling.id === l.id ? (
+                              <>
+                                <span className="shrink-0 font-mono text-[11px] text-muted">
+                                  sold for $
+                                </span>
+                                <input
+                                  autoFocus
+                                  value={selling.amount}
+                                  inputMode="decimal"
+                                  onChange={(e) =>
+                                    setSelling((p) => (p ? { ...p, amount: e.target.value } : p))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") confirmSold(l);
+                                    if (e.key === "Escape") setSelling(null);
+                                  }}
+                                  className="w-16 shrink-0 border-0 border-b border-muted bg-transparent font-mono text-[12px] text-foreground outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => confirmSold(l)}
+                                  className="shrink-0 font-mono text-[11px] text-foreground"
+                                >
+                                  confirm
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-[#8E949E]">
+                                  {l.label}
+                                </span>
+                                <span className="shrink-0 font-mono text-[11px] text-[#5A5F68]">
+                                  pending {money(l.potential_amount ?? 0)}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={!l.id || l.id.startsWith("tmp-")}
+                                  onClick={() =>
+                                    l.id &&
+                                    setSelling({
+                                      id: l.id,
+                                      amount: String(l.potential_amount ?? ""),
+                                    })
+                                  }
+                                  className="shrink-0 rounded-[3px] border border-border px-2 py-[2px] font-mono text-[11px] text-muted disabled:opacity-40"
+                                >
+                                  sold
+                                </button>
+                              </>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+
                     <div className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4">
                       <span className="font-mono text-[11px] text-muted">$</span>
                       <input
@@ -464,11 +661,58 @@ export function BudgetView({
                       </button>
                     </div>
 
+                    {income ? (
+                      potential && potential.cat === c.id ? (
+                        <div className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4">
+                          <input
+                            autoFocus
+                            value={potential.label}
+                            onChange={(e) =>
+                              setPotential((p) => (p ? { ...p, label: e.target.value } : p))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") addPotential(c.id);
+                              if (e.key === "Escape") setPotential(null);
+                            }}
+                            placeholder="what"
+                            className="min-w-0 flex-1 border-0 bg-transparent font-sans text-[14px] text-foreground placeholder:text-muted focus:outline-none"
+                          />
+                          <span className="font-mono text-[11px] text-muted">$</span>
+                          <input
+                            value={potential.amount}
+                            inputMode="decimal"
+                            onChange={(e) =>
+                              setPotential((p) => (p ? { ...p, amount: e.target.value } : p))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") addPotential(c.id);
+                              if (e.key === "Escape") setPotential(null);
+                            }}
+                            placeholder="0"
+                            className="w-14 shrink-0 border-0 bg-transparent font-mono text-[12px] text-foreground placeholder:text-muted focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => addPotential(c.id)}
+                            className="shrink-0 font-mono text-[11px] text-muted"
+                          >
+                            save
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setPotential({ cat: c.id, label: "", amount: "" })}
+                          className="block w-full px-4 py-2 text-left font-mono text-[10px] text-muted"
+                        >
+                          + add potential
+                        </button>
+                      )
+                    ) : null}
                   </div>
                 ) : null}
               </li>
             );
-
           })}
         </ul>
       )}
@@ -485,7 +729,7 @@ export function BudgetView({
           }}
           className="block w-full px-4 py-3 text-left font-mono text-[11px] text-muted transition-colors hover:text-foreground"
         >
-          + add category
+          {income ? "+ add income source" : "+ add category"}
         </button>
       )}
 
@@ -542,10 +786,13 @@ function LineRow({
   onDelete: () => void;
 }) {
   const gesture = useEditGesture(onEnterEdit);
+  const pendingSave = line.id?.startsWith("tmp-") ?? false;
   return (
     <li
       {...gesture}
-      className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4"
+      className={`flex h-[34px] w-full items-center gap-3 border-t border-border px-4 ${
+        pendingSave ? "opacity-60" : ""
+      }`}
     >
       <span className="shrink-0 font-mono text-[11px] text-muted">{shortDate(line.ymd)}</span>
       <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
@@ -555,6 +802,7 @@ function LineRow({
       <button
         type="button"
         aria-label="delete"
+        disabled={pendingSave}
         onClick={onDelete}
         className="shrink-0 font-mono text-[12px] text-muted opacity-40 transition-opacity hover:opacity-100"
       >
