@@ -12,6 +12,7 @@ import { CommandOverlay, type OverlayMode } from "@/components/dashboard/Command
 import { useShortcuts } from "@/components/dashboard/useShortcuts";
 import { getState, isUnauthorized, refreshState, UnauthorizedError } from "@/lib/api";
 import { useStateVersion } from "@/lib/state-cache";
+import { usePwa } from "@/lib/pwa";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -50,6 +51,7 @@ function Index() {
   const isMobile = useIsMobile();
   const onUnauthorized = useCallback(() => setDenied(true), []);
   const version = useStateVersion();
+  usePwa(secret);
 
   useEffect(() => {
     if (!secret) return;
