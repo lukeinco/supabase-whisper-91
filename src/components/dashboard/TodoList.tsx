@@ -8,6 +8,8 @@ import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
 import { GroupAddRow } from "./GroupAddRow";
 import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
+import { moveBefore, useDragSort } from "./drag-sort";
+import { applySort, SortControl, useSort } from "./sort-control";
 import { dueLabel, isDueNow, useDenverToday, ymdToISO } from "@/lib/denver";
 import type { DashboardState } from "@/lib/api";
 import {
@@ -40,7 +42,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   const [todos, setTodos] = useState<Todo[] | null>(null);
   const [folders, setFolders] = useState<Folder[]>([UNFILED]);
   const edit = useEditing();
-  const [dragId, setDragId] = useState<string | null>(null);
+  const { sort, toggle } = useSort();
   const folderEdit = useEditing();
   const [addingFolder, setAddingFolder] = useState(false);
   const [addingTodo, setAddingTodo] = useState(false);
@@ -91,11 +93,15 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     const rest = visible.filter((t) => !isDueNow(t.due_ymd, today));
     return folders.map((f) => ({
       folder: f,
-      items: rest
-        .filter((t) => (t.folder_id ?? UNFILED.id) === f.id)
-        .sort((a, b) => a.position - b.position),
+      items: applySort(
+        rest
+          .filter((t) => (t.folder_id ?? UNFILED.id) === f.id)
+          .sort((a, b) => a.position - b.position),
+        sort,
+        { date: (t) => t.due_ymd },
+      ),
     }));
-  }, [visible, folders, today]);
+  }, [visible, folders, today, sort]);
 
   // Track which items have newly hopped so only those animate.
   const hopIds = useMemo(() => {
@@ -187,67 +193,30 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     }
   }
 
-  /* ---- reorder within a folder: drag on desktop, long-press on mobile ---- */
-  const drag = useRef<{ id: string; folder: string; started: boolean; timer?: number } | null>(
-    null,
-  );
+  /* ---- manual ordering: rows inside a folder, and the folders themselves ---- */
+  const rowDrag = useDragSort({
+    enabled: sort.key === "manual",
+    onOver: (id, overId) =>
+      setTodos((prev) =>
+        prev ? moveBefore(prev, id, overId).map((x, i) => ({ ...x, position: i })) : prev,
+      ),
+    onDrop: () =>
+      send("edited", { reorder: (todos ?? []).map((x, i) => ({ id: x.id, position: i })) }),
+  });
 
-  function onPointerDown(e: React.PointerEvent, t: Todo) {
-    if (edit.editing) return;
-    const folder = t.folder_id ?? UNFILED.id;
-    if (isDueNow(t.due_ymd, today)) return; // pinned block is date-ordered
-    const state = { id: t.id, folder, started: false } as {
-      id: string;
-      folder: string;
-      started: boolean;
-      timer?: number;
-    };
-    drag.current = state;
-    if (e.pointerType === "touch") {
-      state.timer = window.setTimeout(() => {
-        state.started = true;
-        setDragId(t.id);
-      }, 400);
-    }
-  }
-
-  function onPointerMove(e: React.PointerEvent) {
-    const d = drag.current;
-    if (!d) return;
-    if (!d.started) {
-      if (e.pointerType === "touch") return;
-      d.started = true;
-      setDragId(d.id);
-    }
-    e.preventDefault();
-    const el = document
-      .elementFromPoint(e.clientX, e.clientY)
-      ?.closest("[data-todo-id]") as HTMLElement | null;
-    const overId = el?.dataset["todoId"];
-    const overFolder = el?.dataset["folderId"];
-    if (!overId || overId === d.id || overFolder !== d.folder) return;
-    setTodos((prev) => {
-      const list = [...(prev ?? [])];
-      const from = list.findIndex((x) => x.id === d.id);
-      const to = list.findIndex((x) => x.id === overId);
-      if (from < 0 || to < 0) return prev;
-      const [moved] = list.splice(from, 1);
-      list.splice(to, 0, moved!);
-      return list.map((x, i) => ({ ...x, position: i }));
-    });
-  }
-
-  function onPointerUp() {
-    const d = drag.current;
-    drag.current = null;
-    if (d?.timer) clearTimeout(d.timer);
-    if (!d?.started) return;
-    setDragId(null);
-    const order = (todos ?? [])
-      .filter((t) => (t.folder_id ?? UNFILED.id) === d.folder)
-      .map((t, i) => ({ id: t.id, position: i }));
-    send("edited", { reorder: order });
-  }
+  const folderDrag = useDragSort({
+    onOver: (id, overId) =>
+      setFolders((prev) => {
+        const real = prev.filter((f) => f.id !== UNFILED.id);
+        return [...moveBefore(real, id, overId).map((f, i) => ({ ...f, sort_order: i })), UNFILED];
+      }),
+    onDrop: () =>
+      sendFolder("edited", {
+        reorder: folders
+          .filter((f) => f.id !== UNFILED.id)
+          .map((f, i) => ({ id: f.id, sort_order: i, position: i })),
+      }),
+  });
 
   function file(t: Todo, folderId: string | null) {
     setTodos((prev) =>
@@ -301,7 +270,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       today={today}
       rowH={rowH}
       textSize={textSize}
-      dragging={dragId === t.id}
+      dragging={rowDrag.dragId === t.id}
       editing={edit.editing === t.id}
       editRef={edit.editing === t.id ? edit.editRef : undefined}
       onEdit={() => edit.begin(t.id)}
@@ -310,9 +279,9 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       onComplete={() => complete(t)}
       onRemove={() => remove(t)}
       onDue={(ymd) => setDue(t, ymd)}
-      onPointerDown={(e) => !pinned && onPointerDown(e, t)}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      dragProps={
+        pinned || edit.editing === t.id ? {} : rowDrag.bind(t.id, t.folder_id ?? UNFILED.id)
+      }
       completed={done.has(t.id)}
       hop={pinned && hopIds.has(t.id)}
       folders={folders}
@@ -394,6 +363,10 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
         </div>
       ) : null}
 
+      <div className="flex items-center justify-end px-4 pb-1">
+        <SortControl sort={sort} toggle={toggle} keys={["date"]} />
+      </div>
+
       {dueNow.length > 0 ? (
         <div className="mb-3">
           <p className="px-4 py-2 font-mono text-[11px] text-accent">due now</p>
@@ -411,8 +384,11 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
           .map(({ folder, items }) => (
           <div key={folder.id} className="rounded-[6px] border border-muted/25">
             <div
-              className="flex items-center gap-2 px-3 pt-2"
+              className={`flex touch-none items-center gap-2 px-3 pt-2 ${
+                folderDrag.dragId === folder.id ? "opacity-60" : ""
+              }`}
               ref={folderEdit.editing === folder.id ? folderEdit.editRef : undefined}
+              {...(folderEdit.editing === folder.id ? {} : folderDrag.bind(folder.id, "folder"))}
             >
               {folderEdit.editing === folder.id ? (
                 <FolderNameEdit
@@ -514,9 +490,7 @@ type RowProps = {
   onComplete: () => void;
   onRemove: () => void;
   onDue: (ymd: string | null) => void;
-  onPointerDown: (e: React.PointerEvent) => void;
-  onPointerMove: (e: React.PointerEvent) => void;
-  onPointerUp: () => void;
+  dragProps: Record<string, unknown>;
   folders: Folder[];
   onFile: (folderId: string | null) => void;
 };
@@ -538,9 +512,7 @@ function TodoRow({
   onComplete,
   onRemove,
   onDue,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
+  dragProps,
   folders,
   onFile,
 }: RowProps) {
@@ -574,12 +546,7 @@ function TodoRow({
 
   return (
     <div
-      data-todo-id={t.id}
-      data-folder-id={t.folder_id ?? UNFILED.id}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
+      {...dragProps}
       className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4 ${
         dragging ? "opacity-60" : ""
       } ${hop ? "hop-in" : ""}`}
