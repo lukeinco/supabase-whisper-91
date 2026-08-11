@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { denverISO, denverYMD } from "@/lib/denver";
 import { reminderTimeLabel } from "@/lib/reminders";
+import { TZ } from "@/lib/denver";
+
+const dayFmt = new Intl.DateTimeFormat("en-US", { timeZone: TZ, month: "short", day: "numeric" });
+
+/** "2:30 pm" today, otherwise "aug 12". */
+function fireLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(d);
+  return ymd === denverYMD() ? reminderTimeLabel(iso) : dayFmt.format(d).toLowerCase();
+}
 import { EmptyAction } from "./primitives";
 import type { ReminderHub } from "./useReminderHub";
 
@@ -74,27 +85,39 @@ export function ReminderList({ hub, dense = false }: { hub: ReminderHub; dense?:
 
   return (
     <div className="w-full min-w-0 pb-2">
-      {list.map((r) => (
-        <div
-          key={r.id}
-          className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
-        >
-          <span className={`min-w-0 flex-1 truncate font-sans ${textSize} text-foreground`}>
-            {r.title || "reminder"}
-          </span>
-          <span className="shrink-0 font-mono text-[11px] text-muted">
-            {reminderTimeLabel(r.fire_at)}
-          </span>
-          <button
-            type="button"
-            aria-label="clear reminder"
-            onClick={() => hub.clearReminder(r.id)}
-            className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+      {list.map((r) => {
+        const passed = new Date(r.fire_at).getTime() <= Date.now();
+        return (
+          <div
+            key={r.id}
+            className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
           >
-            ×
-          </button>
-        </div>
-      ))}
+            <button
+              type="button"
+              aria-label="clear reminder"
+              onClick={() => hub.clearReminder(r.id)}
+              className="size-[14px] shrink-0 rounded-[3px] border border-border"
+            />
+            <span
+              className="w-[54px] shrink-0 font-mono text-[11px]"
+              style={{ color: passed ? "var(--accent)" : "var(--muted)" }}
+            >
+              {fireLabel(r.fire_at)}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
+              {r.title || "reminder"}
+            </span>
+            <button
+              type="button"
+              aria-label="delete reminder"
+              onClick={() => hub.deleteReminder(r.id)}
+              className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+            >
+              ×
+            </button>
+          </div>
+        );
+      })}
       {adding ? (
         addRow
       ) : (
