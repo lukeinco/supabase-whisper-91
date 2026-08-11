@@ -1,4 +1,4 @@
-import { useCallback, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { Square, SquareCheck } from "lucide-react";
 import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
@@ -168,7 +168,7 @@ function RoutineRow({
   rowH: string;
   textSize: string;
   editing: boolean;
-  editRef?: (el: HTMLElement | null) => void;
+  editRef: ((el: HTMLElement | null) => void) | undefined;
   onEnterEdit: () => void;
   onCancelEdit: () => void;
   onSave: (value: string) => void;
@@ -176,6 +176,9 @@ function RoutineRow({
 }) {
   const gesture = useEditGesture(onEnterEdit);
   const [value, setValue] = useState(r.title);
+  useEffect(() => {
+    if (editing) setValue(r.title);
+  }, [editing, r.title]);
 
   return (
     <div
@@ -208,7 +211,6 @@ function RoutineRow({
           </button>
           <span
             {...gesture}
-            onDoubleClickCapture={() => setValue(r.title)}
             className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
               done ? "text-muted line-through" : "text-foreground"
             }`}
