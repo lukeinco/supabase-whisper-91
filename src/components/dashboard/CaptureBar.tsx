@@ -68,6 +68,23 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
 
   const parsed = useMemo(() => parseCapture(value, budgetCategories), [value, budgetCategories]);
 
+  // empty states elsewhere focus (and optionally prefill) the capture bar
+  useEffect(() => {
+    const onFocusRequest = (e: Event) => {
+      const prefill = (e as CustomEvent<{ prefill?: string }>).detail?.prefill;
+      if (typeof prefill === "string" && prefill) setValue(prefill);
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      });
+    };
+    window.addEventListener("capture:focus", onFocusRequest);
+    return () => window.removeEventListener("capture:focus", onFocusRequest);
+  }, []);
+
+
   // reset overrides when the input text changes shape
   useEffect(() => {
     setDueOverride(null);
