@@ -150,7 +150,11 @@ export function MobileShell({ secret }: { secret: string }) {
           <>
             <WeatherLine className="mb-3" />
             <div className="-mx-4">
-              <NextReminder reminder={hub.next} />
+              <NextReminder
+                      reminder={hub.next}
+                      onDismiss={() => hub.next && hub.clearReminder(hub.next.id, "dismissed")}
+                      onComplete={() => hub.next && hub.clearReminder(hub.next.id, "completed")}
+                    />
             </div>
           </>
         ) : null}

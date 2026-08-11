@@ -101,7 +101,11 @@ export function DesktopGrid({
               <>
                 {hub.next ? (
                   <div className="pt-3">
-                    <NextReminder reminder={hub.next} />
+                    <NextReminder
+                      reminder={hub.next}
+                      onDismiss={() => hub.next && hub.clearReminder(hub.next.id, "dismissed")}
+                      onComplete={() => hub.next && hub.clearReminder(hub.next.id, "completed")}
+                    />
                   </div>
                 ) : null}
                 <DueNowToday secret={secret} dense onUnauthorized={onUnauthorized} />
