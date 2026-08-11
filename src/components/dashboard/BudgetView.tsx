@@ -13,12 +13,13 @@ import {
   pct,
   shortDate,
   spendByCategory,
+  ymdToISO,
   type BudgetCat,
   type BudgetLine,
   type QueueCard,
 } from "@/lib/budget";
 import { EmptyAction, EmptyLine, LoadingLine } from "./primitives";
-import { useEditGesture, useEditing } from "./edit-mode";
+import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
 
 
 type Draft = { name: string; amount: string; spread: boolean };
@@ -60,8 +61,18 @@ export function BudgetView({
   const [draft, setDraft] = useState<Draft>({ name: "", amount: "", spread: true });
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [entry, setEntry] = useState<{ amount: string; label: string }>({ amount: "", label: "" });
+  const [entry, setEntry] = useState<{ amount: string; label: string; ymd: string }>({
+    amount: "",
+    label: "",
+    ymd: "",
+  });
   const amountRef = useRef<HTMLInputElement | null>(null);
+  const lineEdit = useEditing();
+  const [lineDraft, setLineDraft] = useState<{ amount: string; label: string; ymd: string }>({
+    amount: "",
+    label: "",
+    ymd: "",
+  });
 
   const load = useCallback(() => {
     getState(secret)
@@ -102,7 +113,8 @@ export function BudgetView({
 
   function toggleExpand(id: string) {
     edit.end();
-    setEntry({ amount: "", label: "" });
+    lineEdit.end();
+    setEntry({ amount: "", label: "", ymd: "" });
     setExpanded((prev) => (prev === id ? null : id));
   }
 
@@ -135,14 +147,44 @@ export function BudgetView({
     const amount = Number(entry.amount.replace(/[^0-9.]/g, ""));
     if (!Number.isFinite(amount) || amount === 0) return;
     const label = entry.label.trim();
-    setEntry({ amount: "", label: "" });
+    const ymd = entry.ymd || today;
+    setEntry({ amount: "", label: "", ymd: "" });
     amountRef.current?.focus();
     setLines((prev) => [
       ...prev,
-      { id: `tmp-${Date.now()}`, category_id: categoryId, amount, label, ymd: today },
+      { id: `tmp-${Date.now()}`, category_id: categoryId, amount, label, ymd },
     ]);
-    void sendLine("created", { category_id: categoryId, amount, label });
+    void sendLine("created", { category_id: categoryId, amount, label, spent_at: ymdToISO(ymd) });
   }
+
+  function startLineEdit(l: BudgetLine) {
+    if (!l.id) return;
+    lineEdit.begin(l.id);
+    setLineDraft({ amount: String(l.amount || ""), label: l.label, ymd: l.ymd ?? "" });
+  }
+
+  function saveLine(l: BudgetLine) {
+    const id = l.id;
+    if (!id) return;
+    const amount = Number(lineDraft.amount.replace(/[^0-9.]/g, ""));
+    const label = lineDraft.label.trim();
+    const ymd = lineDraft.ymd || l.ymd;
+    lineEdit.end();
+    setLines((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? { ...x, amount: Number.isFinite(amount) ? amount : x.amount, label, ymd }
+          : x,
+      ),
+    );
+    void sendLine("edited", {
+      id,
+      amount: Number.isFinite(amount) ? amount : l.amount,
+      label,
+      ...(ymd ? { spent_at: ymdToISO(ymd) } : {}),
+    });
+  }
+
 
 
   async function save(id: string | null) {
@@ -313,30 +355,64 @@ export function BudgetView({
                       </p>
                     ) : (
                       <ul className="w-full">
-                        {catLines.map((l, i) => (
-                          <li
-                            key={l.id ?? `${l.ymd}-${l.label}-${l.amount}`}
-                            className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4"
-                          >
-                            <span className="shrink-0 font-mono text-[11px] text-muted">
-                              {shortDate(l.ymd)}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
-                              {l.label}
-                            </span>
-                            <span className="shrink-0 font-mono text-[12px] text-foreground">
-                              {money(l.amount)}
-                            </span>
-                            <button
-                              type="button"
-                              aria-label="delete"
-                              onClick={() => removeLine(l)}
-                              className="shrink-0 font-mono text-[12px] text-muted opacity-40 transition-opacity hover:opacity-100"
-                            >
-                              ×
-                            </button>
-                          </li>
-                        ))}
+                        {catLines.map((l) => {
+                          const key = l.id ?? `${l.ymd}-${l.label}-${l.amount}`;
+                          if (l.id && lineEdit.editing === l.id) {
+                            return (
+                              <li
+                                key={key}
+                                ref={lineEdit.editRef}
+                                className="flex min-h-[34px] w-full items-center gap-2 border-t border-border px-4 py-1"
+                              >
+                                <input
+                                  type="date"
+                                  value={lineDraft.ymd}
+                                  onChange={(e) =>
+                                    setLineDraft((p) => ({ ...p, ymd: e.target.value }))
+                                  }
+                                  className="shrink-0 border-0 border-b border-muted bg-transparent font-mono text-[11px] text-foreground outline-none"
+                                />
+                                <input
+                                  value={lineDraft.label}
+                                  onChange={(e) =>
+                                    setLineDraft((p) => ({ ...p, label: e.target.value }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveLine(l);
+                                    if (e.key === "Escape") lineEdit.end();
+                                  }}
+                                  placeholder="what"
+                                  className={`${editFieldClass} font-sans text-[14px] text-foreground placeholder:text-muted`}
+                                />
+                                <input
+                                  autoFocus
+                                  value={lineDraft.amount}
+                                  onChange={(e) =>
+                                    setLineDraft((p) => ({ ...p, amount: e.target.value }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveLine(l);
+                                    if (e.key === "Escape") lineEdit.end();
+                                  }}
+                                  inputMode="decimal"
+                                  className="w-14 shrink-0 border-0 border-b border-muted bg-transparent font-mono text-[12px] text-foreground outline-none"
+                                />
+                                <EditControls
+                                  onSave={() => saveLine(l)}
+                                  onCancel={() => lineEdit.end()}
+                                />
+                              </li>
+                            );
+                          }
+                          return (
+                            <LineRow
+                              key={key}
+                              line={l}
+                              onEnterEdit={() => startLineEdit(l)}
+                              onDelete={() => removeLine(l)}
+                            />
+                          );
+                        })}
                       </ul>
                     )}
                     <div className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4">
@@ -361,6 +437,17 @@ export function BudgetView({
                         placeholder="what"
                         className="min-w-0 flex-1 border-0 bg-transparent font-sans text-[14px] text-foreground placeholder:text-muted focus:outline-none"
                       />
+                      <input
+                        type="date"
+                        value={entry.ymd}
+                        onChange={(e) => setEntry((p) => ({ ...p, ymd: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addLine(c.id);
+                        }}
+                        aria-label="date"
+                        className="shrink-0 border-0 bg-transparent font-mono text-[11px] text-muted focus:outline-none"
+                      />
+
                       <button
                         type="button"
                         onClick={() => addLine(c.id)}
@@ -435,5 +522,37 @@ function CategoryName({
     >
       {name}
     </span>
+  );
+}
+
+function LineRow({
+  line,
+  onEnterEdit,
+  onDelete,
+}: {
+  line: BudgetLine;
+  onEnterEdit: () => void;
+  onDelete: () => void;
+}) {
+  const gesture = useEditGesture(onEnterEdit);
+  return (
+    <li
+      {...gesture}
+      className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4"
+    >
+      <span className="shrink-0 font-mono text-[11px] text-muted">{shortDate(line.ymd)}</span>
+      <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
+        {line.label}
+      </span>
+      <span className="shrink-0 font-mono text-[12px] text-foreground">{money(line.amount)}</span>
+      <button
+        type="button"
+        aria-label="delete"
+        onClick={onDelete}
+        className="shrink-0 font-mono text-[12px] text-muted opacity-40 transition-opacity hover:opacity-100"
+      >
+        ×
+      </button>
+    </li>
   );
 }
