@@ -354,30 +354,64 @@ export function BudgetView({
                       </p>
                     ) : (
                       <ul className="w-full">
-                        {catLines.map((l, i) => (
-                          <li
-                            key={l.id ?? `${l.ymd}-${l.label}-${l.amount}`}
-                            className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4"
-                          >
-                            <span className="shrink-0 font-mono text-[11px] text-muted">
-                              {shortDate(l.ymd)}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
-                              {l.label}
-                            </span>
-                            <span className="shrink-0 font-mono text-[12px] text-foreground">
-                              {money(l.amount)}
-                            </span>
-                            <button
-                              type="button"
-                              aria-label="delete"
-                              onClick={() => removeLine(l)}
-                              className="shrink-0 font-mono text-[12px] text-muted opacity-40 transition-opacity hover:opacity-100"
-                            >
-                              ×
-                            </button>
-                          </li>
-                        ))}
+                        {catLines.map((l) => {
+                          const key = l.id ?? `${l.ymd}-${l.label}-${l.amount}`;
+                          if (l.id && lineEdit.editing === l.id) {
+                            return (
+                              <li
+                                key={key}
+                                ref={lineEdit.editRef}
+                                className="flex min-h-[34px] w-full items-center gap-2 border-t border-border px-4 py-1"
+                              >
+                                <input
+                                  type="date"
+                                  value={lineDraft.ymd}
+                                  onChange={(e) =>
+                                    setLineDraft((p) => ({ ...p, ymd: e.target.value }))
+                                  }
+                                  className="shrink-0 border-0 border-b border-muted bg-transparent font-mono text-[11px] text-foreground outline-none"
+                                />
+                                <input
+                                  value={lineDraft.label}
+                                  onChange={(e) =>
+                                    setLineDraft((p) => ({ ...p, label: e.target.value }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveLine(l);
+                                    if (e.key === "Escape") lineEdit.end();
+                                  }}
+                                  placeholder="what"
+                                  className={`${editFieldClass} font-sans text-[14px] text-foreground placeholder:text-muted`}
+                                />
+                                <input
+                                  autoFocus
+                                  value={lineDraft.amount}
+                                  onChange={(e) =>
+                                    setLineDraft((p) => ({ ...p, amount: e.target.value }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") saveLine(l);
+                                    if (e.key === "Escape") lineEdit.end();
+                                  }}
+                                  inputMode="decimal"
+                                  className="w-14 shrink-0 border-0 border-b border-muted bg-transparent font-mono text-[12px] text-foreground outline-none"
+                                />
+                                <EditControls
+                                  onSave={() => saveLine(l)}
+                                  onCancel={() => lineEdit.end()}
+                                />
+                              </li>
+                            );
+                          }
+                          return (
+                            <LineRow
+                              key={key}
+                              line={l}
+                              onEnterEdit={() => startLineEdit(l)}
+                              onDelete={() => removeLine(l)}
+                            />
+                          );
+                        })}
                       </ul>
                     )}
                     <div className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4">
@@ -402,6 +436,17 @@ export function BudgetView({
                         placeholder="what"
                         className="min-w-0 flex-1 border-0 bg-transparent font-sans text-[14px] text-foreground placeholder:text-muted focus:outline-none"
                       />
+                      <input
+                        type="date"
+                        value={entry.ymd}
+                        onChange={(e) => setEntry((p) => ({ ...p, ymd: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addLine(c.id);
+                        }}
+                        aria-label="date"
+                        className="shrink-0 border-0 bg-transparent font-mono text-[11px] text-muted focus:outline-none"
+                      />
+
                       <button
                         type="button"
                         onClick={() => addLine(c.id)}
