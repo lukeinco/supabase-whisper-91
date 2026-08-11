@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from "react";
+import { refreshState } from "@/lib/api";
+import { useStateVersion } from "@/lib/state-cache";
 import { DashboardHeader } from "./DashboardHeader";
+
 import { WeatherLine } from "./WeatherLine";
 import { CaptureBar } from "./CaptureBar";
 import { TabBar, type TabId } from "./TabBar";
@@ -32,6 +35,8 @@ const TAB_WIDGETS: Record<TabId, string[]> = {
 
 const TAB_ORDER: TabId[] = ["today", "do", "buy", "budget", "notes"];
 
+const PULL_THRESHOLD = 70;
+
 export function MobileShell({ secret }: { secret: string }) {
   const [tab, setTab] = useState<TabId>("today");
   const [queueOpen, setQueueOpen] = useState(false);
@@ -41,6 +46,11 @@ export function MobileShell({ secret }: { secret: string }) {
   const panStart = useRef<{ x: number; y: number } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [overlay, setOverlay] = useState<OverlayMode>(null);
+  const version = useStateVersion();
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const pulling = useRef(false);
+
 
   useShortcuts({
     onSearch: useCallback(() => setOverlay("search"), []),
@@ -63,8 +73,33 @@ export function MobileShell({ secret }: { secret: string }) {
           swipeStart.current = tab === "do" ? (e.touches[0]?.clientY ?? null) : null;
           const t = e.touches[0];
           panStart.current = t ? { x: t.clientX, y: t.clientY } : null;
+          pulling.current = (mainRef.current?.scrollTop ?? 0) <= 0 && !queueOpen;
+        }}
+        onTouchMove={(e) => {
+          if (!pulling.current || refreshing) return;
+          const start = panStart.current;
+          const t = e.touches[0];
+          if (!start || !t) return;
+          const dy = t.clientY - start.y;
+          const dx = t.clientX - start.x;
+          if (dy <= 0 || Math.abs(dx) > Math.abs(dy)) {
+            if (pull !== 0) setPull(0);
+            return;
+          }
+          if ((mainRef.current?.scrollTop ?? 0) > 0) return;
+          setPull(Math.min(dy * 0.5, 110));
         }}
         onTouchEnd={(e) => {
+          const armed = pull >= PULL_THRESHOLD;
+          pulling.current = false;
+          setPull(0);
+          if (armed && !refreshing) {
+            setRefreshing(true);
+            void refreshState(secret).finally(() => setRefreshing(false));
+            swipeStart.current = null;
+            panStart.current = null;
+            return;
+          }
           const from = swipeStart.current;
           swipeStart.current = null;
           const start = panStart.current;
@@ -87,6 +122,20 @@ export function MobileShell({ secret }: { secret: string }) {
           if (next) setTab(next);
         }}
       >
+        {pull > 0 || refreshing ? (
+          <p
+            className="flex items-end justify-center overflow-hidden font-mono text-[11px] text-muted"
+            style={{ height: refreshing ? 24 : Math.min(pull, 24) }}
+          >
+            {refreshing ? "refreshing" : pull >= PULL_THRESHOLD ? "release to refresh" : ""}
+          </p>
+        ) : null}
+        <div
+          key={version}
+          style={{ transform: `translateY(${pull}px)` }}
+          className={pull === 0 ? "transition-transform duration-200" : undefined}
+        >
+
         {tab === "today" ? (
           <>
             <WeatherLine className="mb-3" />
@@ -139,7 +188,9 @@ export function MobileShell({ secret }: { secret: string }) {
             </p>
           </div>
         ) : null}
+        </div>
       </main>
+
       <div className="shrink-0">
         <CaptureBar secret={secret} />
         <TabBar active={tab} onChange={setTab} badges={{ do: hub.count > 0, budget: false }} />
