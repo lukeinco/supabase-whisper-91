@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Square, SquareCheck, X } from "lucide-react";
 import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { EmptyAction } from "./primitives";
 import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
+import {
+  RoutineFrequencyIcon,
+  frequencyKindOf,
+  type FrequencyKind,
+} from "./RoutineFrequencyIcon";
 import { useDenverToday } from "@/lib/denver";
+
 import {
   normalizeRoutineTicks,
   normalizeRoutines,
@@ -281,7 +287,11 @@ function RoutineRow({
         >
           {r.title}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-muted">{scheduleLabel(r)}</span>
+        <span className="flex shrink-0 items-center gap-[5px] font-mono text-[11px] text-muted">
+          <RoutineFrequencyIcon kind={frequencyKindOf(r)} nth={r.repeat_nth} size={14} />
+          {scheduleLabel(r)}
+        </span>
+
       </span>
 
       <button
@@ -360,21 +370,8 @@ function RoutineEditor({
 
       <div className="flex items-center gap-2">
         <span className="w-[64px] shrink-0 font-mono text-[11px] text-muted">repeat</span>
-        <select
-          value={d.repeat}
-          onChange={(e) => set("repeat", e.target.value as RepeatOption)}
-          className={`${editFieldClass} min-w-0 flex-1 font-mono text-[12px] text-foreground [color-scheme:dark] [&>option]:bg-card [&>option]:text-foreground`}
-        >
-          <option value="daily">every day</option>
-          <option value="n_days">every N days</option>
-          <option value="weekly">every {weekday}</option>
-          <option value="n_weeks">every N weeks on {weekday}</option>
-          <option value="nth1">first {weekday} of the month</option>
-          <option value="nth2">second {weekday} of the month</option>
-          <option value="nth3">third {weekday} of the month</option>
-          <option value="nth4">fourth {weekday} of the month</option>
-          <option value="nth_last">last {weekday} of the month</option>
-        </select>
+        <RepeatSelect value={d.repeat} weekday={weekday} onChange={(v) => set("repeat", v)} />
+
         {showInterval ? (
           <input
             type="number"
@@ -394,6 +391,92 @@ function RoutineEditor({
           </button>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+const REPEAT_OPTIONS: {
+  value: RepeatOption;
+  icon: FrequencyKind;
+  nth?: number;
+  label: (weekday: string) => string;
+}[] = [
+  { value: "daily", icon: "daily", label: () => "every day" },
+  { value: "n_days", icon: "every_n_days", label: () => "every N days" },
+  { value: "weekly", icon: "weekly", label: (w) => `every ${w}` },
+  { value: "n_weeks", icon: "every_n_weeks", label: (w) => `every N weeks on ${w}` },
+  { value: "nth1", icon: "nth_weekday_of_month", nth: 1, label: (w) => `first ${w} of the month` },
+  { value: "nth2", icon: "nth_weekday_of_month", nth: 2, label: (w) => `second ${w} of the month` },
+  { value: "nth3", icon: "nth_weekday_of_month", nth: 3, label: (w) => `third ${w} of the month` },
+  { value: "nth4", icon: "nth_weekday_of_month", nth: 4, label: (w) => `fourth ${w} of the month` },
+  {
+    value: "nth_last",
+    icon: "nth_weekday_of_month",
+    nth: -1,
+    label: (w) => `last ${w} of the month`,
+  },
+];
+
+function RepeatSelect({
+  value,
+  weekday,
+  onChange,
+}: {
+  value: RepeatOption;
+  weekday: string;
+  onChange: (v: RepeatOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const current = REPEAT_OPTIONS.find((o) => o.value === value) ?? REPEAT_OPTIONS[0]!;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative min-w-0 flex-1">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className={`${editFieldClass} flex w-full min-w-0 items-center gap-2 text-left font-mono text-[12px] text-foreground`}
+      >
+        <RoutineFrequencyIcon kind={current.icon} nth={current.nth} size={20} />
+        <span className="min-w-0 flex-1 truncate">{current.label(weekday)}</span>
+      </button>
+      {open ? (
+        <ul
+          role="listbox"
+          className="absolute left-0 top-full z-30 mt-1 max-h-[260px] w-full overflow-y-auto rounded-[6px] border border-border bg-card py-1"
+        >
+          {REPEAT_OPTIONS.map((o) => (
+            <li key={o.value}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={o.value === value}
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 px-3 py-[6px] text-left font-mono text-[12px] ${
+                  o.value === value ? "text-foreground" : "text-muted"
+                }`}
+              >
+                <RoutineFrequencyIcon kind={o.icon} nth={o.nth} size={20} />
+                <span className="min-w-0 truncate">{o.label(weekday)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
