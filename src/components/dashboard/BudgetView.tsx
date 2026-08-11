@@ -137,7 +137,7 @@ export function BudgetView({
     amountRef.current?.focus();
     setLines((prev) => [
       ...prev,
-      { id: null, category_id: categoryId, amount, label, ymd: today },
+      { id: `tmp-${Date.now()}`, category_id: categoryId, amount, label, ymd: today },
     ]);
     void sendLine("created", { category_id: categoryId, amount, label });
   }
@@ -328,7 +328,7 @@ export function BudgetView({
                       <ul className="w-full">
                         {catLines.map((l, i) => (
                           <li
-                            key={l.id ?? `${i}-${l.label}`}
+                            key={l.id ?? `${l.ymd}-${l.label}-${l.amount}`}
                             className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4"
                           >
                             <span className="shrink-0 font-mono text-[11px] text-muted">
