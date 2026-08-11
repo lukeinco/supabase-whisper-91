@@ -188,7 +188,7 @@ export function BudgetView({
       id,
       amount: Number.isFinite(amount) ? amount : l.amount,
       label,
-      ...(ymd ? { spent_at: ymdToISO(ymd) } : {}),
+      ...(ymd ? { spent_on: ymd, spent_at: ymdToISO(ymd) } : {}),
     });
   }
 
