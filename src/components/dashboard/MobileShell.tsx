@@ -131,10 +131,10 @@ export function MobileShell({ secret }: { secret: string }) {
           </p>
         ) : null}
         <div
-          key={version}
           style={{ transform: `translateY(${pull}px)` }}
           className={pull === 0 ? "transition-transform duration-200" : undefined}
         >
+
 
         {tab === "today" ? (
           <>
