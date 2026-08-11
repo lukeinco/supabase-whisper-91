@@ -380,7 +380,15 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                               ))
                             )}
                           </select>
+                          <button
+                            type="button"
+                            onClick={() => confirmAmount(b)}
+                            className="shrink-0 font-mono text-[11px] text-muted"
+                          >
+                            save
+                          </button>
                         </div>
+
                       ) : null}
                     </div>
                   );
