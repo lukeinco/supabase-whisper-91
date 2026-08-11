@@ -338,7 +338,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                       </div>
 
                       {p ? (
-                        <div className="slide-row flex h-[30px] w-full min-w-0 items-center gap-2 border-b border-border px-4">
+                        <div className="flex h-[30px] w-full min-w-0 items-center gap-2 border-b border-border px-4">
                           <span className="font-mono text-[11px] text-muted">$</span>
                           <input
                             autoFocus
