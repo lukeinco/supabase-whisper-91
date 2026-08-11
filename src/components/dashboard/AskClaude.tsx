@@ -39,7 +39,7 @@ export function AskClaude({ secret, className = "" }: { secret: string; classNam
       onClick={() => void copy()}
       className={`font-mono text-[11px] text-muted ${className}`}
     >
-      {copied ? "copied" : "ask claude"}
+      {copied ? "copied" : "current state for claude"}
     </button>
   );
 }
