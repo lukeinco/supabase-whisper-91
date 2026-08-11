@@ -2,9 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { mutate, UnauthorizedError } from "@/lib/api";
+import { useDashboardSync } from "@/lib/use-dashboard-sync";
+import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
 import { dueLabel, isDueNow, useDenverToday, ymdToISO } from "@/lib/denver";
+import type { DashboardState } from "@/lib/api";
 import {
   nextOccurrence,
   normalizeFolders,
@@ -42,23 +45,17 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
   const hoppedRef = useRef<Set<string>>(new Set());
 
-  useEffect(() => {
-    let active = true;
-    getState(secret)
-      .then((state) => {
-        if (!active) return;
-        setFolders(normalizeFolders(state));
-        setTodos(normalizeTodos(state));
-      })
-      .catch((e: unknown) => {
-        if (!active) return;
-        if (e instanceof UnauthorizedError) onUnauthorized?.();
-        setTodos([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [secret, onUnauthorized]);
+  const done = useVisitCompleted<Todo>();
+
+  // Fresh cloud state is merged in place — existing rows keep their DOM nodes.
+  useDashboardSync(
+    secret,
+    useCallback((state: DashboardState) => {
+      setFolders(normalizeFolders(state));
+      setTodos(normalizeTodos(state));
+    }, []),
+    onUnauthorized,
+  );
 
   const send = useCallback(
     (action: string, payload: Record<string, unknown>) => {
@@ -78,23 +75,25 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     [secret, onUnauthorized],
   );
 
+  const visible = useMemo(() => done.merge(todos ?? []), [todos, done]);
+
   const dueNow = useMemo(
     () =>
-      (todos ?? [])
+      visible
         .filter((t) => isDueNow(t.due_ymd, today))
         .sort((a, b) => (a.due_ymd ?? "").localeCompare(b.due_ymd ?? "")),
-    [todos, today],
+    [visible, today],
   );
 
   const byFolder = useMemo(() => {
-    const rest = (todos ?? []).filter((t) => !isDueNow(t.due_ymd, today));
+    const rest = visible.filter((t) => !isDueNow(t.due_ymd, today));
     return folders.map((f) => ({
       folder: f,
       items: rest
         .filter((t) => (t.folder_id ?? UNFILED.id) === f.id)
         .sort((a, b) => a.position - b.position),
     }));
-  }, [todos, folders, today]);
+  }, [visible, folders, today]);
 
   // Track which items have newly hopped so only those animate.
   const hopIds = useMemo(() => {
@@ -123,8 +122,14 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     });
   }
 
+  /** Completed rows stay in place, muted and struck through, until the view changes. */
   function complete(t: Todo) {
-    setTodos((prev) => (prev ?? []).filter((x) => x.id !== t.id));
+    if (done.has(t.id)) {
+      done.unmark(t.id);
+      send("uncompleted", { id: t.id });
+      return;
+    }
+    done.mark(t, (todos ?? []).findIndex((x) => x.id === t.id));
     send("completed", { id: t.id });
     if (t.recur_rule) {
       const base = t.due_ymd ?? today;
@@ -139,8 +144,8 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       }
     }
     withUndo("completed", () => {
-      setTodos((prev) => [...(prev ?? []), t]);
-      send("edited", { id: t.id, completed_at: null });
+      done.unmark(t.id);
+      send("uncompleted", { id: t.id });
     });
   }
 
@@ -305,6 +310,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       onPointerDown={(e) => !pinned && onPointerDown(e, t)}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      completed={done.has(t.id)}
       hop={pinned && hopIds.has(t.id)}
       folders={folders}
       onFile={(folderId) => file(t, folderId)}
@@ -477,6 +483,7 @@ type RowProps = {
   textSize: string;
   dragging: boolean;
   editing: boolean;
+  completed: boolean;
   hop: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
@@ -499,6 +506,7 @@ function TodoRow({
   textSize,
   dragging,
   editing,
+  completed,
   hop,
   onEdit,
   onCancelEdit,
@@ -547,7 +555,9 @@ function TodoRow({
         <button
           type="button"
           onClick={onEdit}
-          className={`min-w-0 flex-1 truncate text-left font-sans ${textSize} text-foreground`}
+          className={`min-w-0 flex-1 truncate text-left font-sans ${textSize} ${
+            completed ? "text-muted line-through" : "text-foreground"
+          }`}
         >
           {t.title}
         </button>
