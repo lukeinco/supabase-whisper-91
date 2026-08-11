@@ -8,6 +8,7 @@ import { EmptyLine } from "./primitives";
 import { WIDGETS } from "./widgets";
 import { TodoList } from "./TodoList";
 import { CalendarToday } from "./CalendarToday";
+import { DueNowToday } from "./DueNowToday";
 import { BudgetView } from "./BudgetView";
 import { BuyList } from "./BuyList";
 import { RoutineList } from "./RoutineList";
@@ -78,7 +79,10 @@ export function MobileShell({ secret }: { secret: string }) {
               {w.id === "budget" ? (
                 <BudgetView secret={secret} />
               ) : w.id === "today" ? (
-                <CalendarToday secret={secret} showLabel={false} />
+                <>
+                  <DueNowToday secret={secret} />
+                  <CalendarToday secret={secret} showLabel={false} />
+                </>
               ) : w.id === "to-do" ? (
                 <TodoList secret={secret} />
               ) : w.id === "to-buy" ? (

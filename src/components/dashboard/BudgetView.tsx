@@ -181,7 +181,7 @@ export function BudgetView({
       </div>
 
       {cats.length === 0 && !adding ? (
-        <EmptyLine>no categories</EmptyLine>
+        <EmptyAction onClick={() => setAdding(true)}>no categories — add one</EmptyAction>
       ) : (
         <ul className="w-full">
           {cats.map((c) => {

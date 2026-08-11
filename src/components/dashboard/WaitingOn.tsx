@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Square } from "lucide-react";
 import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { EmptyAction } from "./primitives";
 import { useDenverToday } from "@/lib/denver";
 import { daysElapsed, normalizeWaiting, type WaitingItem } from "@/lib/modules";
 
@@ -98,7 +99,7 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
   return (
     <div className="w-full min-w-0 pb-2">
       {items.length === 0 && !adding ? (
-        <p className="px-4 py-3 font-mono text-[12px] text-muted">not waiting on anything</p>
+        <EmptyAction onClick={() => setAdding(true)}>nothing pending — add one</EmptyAction>
       ) : (
         items.map((w) => (
           <div

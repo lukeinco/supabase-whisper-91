@@ -4,6 +4,7 @@ import { Widget } from "./Widget";
 import { EmptyLine, LoadingLine } from "./primitives";
 import { TodoList } from "./TodoList";
 import { CalendarToday } from "./CalendarToday";
+import { DueNowToday } from "./DueNowToday";
 import { BudgetView } from "./BudgetView";
 import { BuyList } from "./BuyList";
 import { RoutineList } from "./RoutineList";
@@ -98,6 +99,7 @@ export function DesktopGrid({
                     <NextReminder reminder={hub.next} />
                   </div>
                 ) : null}
+                <DueNowToday secret={secret} dense onUnauthorized={onUnauthorized} />
                 <CalendarToday secret={secret} dense showLabel={false} onUnauthorized={onUnauthorized} />
               </>
             ) : w.id === "to-do" ? (

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Square, SquareCheck } from "lucide-react";
 import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { EmptyAction } from "./primitives";
 import { useDenverToday } from "@/lib/denver";
 import {
   normalizeRoutineTicks,
@@ -81,7 +82,7 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
   return (
     <div className="w-full min-w-0 pb-2">
       {routines.length === 0 && !adding ? (
-        <p className="px-4 py-3 font-mono text-[12px] text-muted">empty</p>
+        <EmptyAction onClick={() => setAdding(true)}>no routine — add one</EmptyAction>
       ) : (
         routines.map((r) => {
           const done = ticks[r.id] === today;
