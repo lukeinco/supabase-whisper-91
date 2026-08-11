@@ -112,7 +112,8 @@ export function BudgetView({
 
   function toggleExpand(id: string) {
     edit.end();
-    setEntry({ amount: "", label: "" });
+    lineEdit.end();
+    setEntry({ amount: "", label: "", ymd: "" });
     setExpanded((prev) => (prev === id ? null : id));
   }
 
@@ -145,14 +146,44 @@ export function BudgetView({
     const amount = Number(entry.amount.replace(/[^0-9.]/g, ""));
     if (!Number.isFinite(amount) || amount === 0) return;
     const label = entry.label.trim();
-    setEntry({ amount: "", label: "" });
+    const ymd = entry.ymd || today;
+    setEntry({ amount: "", label: "", ymd: "" });
     amountRef.current?.focus();
     setLines((prev) => [
       ...prev,
-      { id: `tmp-${Date.now()}`, category_id: categoryId, amount, label, ymd: today },
+      { id: `tmp-${Date.now()}`, category_id: categoryId, amount, label, ymd },
     ]);
-    void sendLine("created", { category_id: categoryId, amount, label });
+    void sendLine("created", { category_id: categoryId, amount, label, spent_at: ymdToISO(ymd) });
   }
+
+  function startLineEdit(l: BudgetLine) {
+    if (!l.id) return;
+    lineEdit.begin(l.id);
+    setLineDraft({ amount: String(l.amount || ""), label: l.label, ymd: l.ymd ?? "" });
+  }
+
+  function saveLine(l: BudgetLine) {
+    const id = l.id;
+    if (!id) return;
+    const amount = Number(lineDraft.amount.replace(/[^0-9.]/g, ""));
+    const label = lineDraft.label.trim();
+    const ymd = lineDraft.ymd || l.ymd;
+    lineEdit.end();
+    setLines((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? { ...x, amount: Number.isFinite(amount) ? amount : x.amount, label, ymd }
+          : x,
+      ),
+    );
+    void sendLine("edited", {
+      id,
+      amount: Number.isFinite(amount) ? amount : l.amount,
+      label,
+      ...(ymd ? { spent_at: ymdToISO(ymd) } : {}),
+    });
+  }
+
 
 
   async function save(id: string | null) {
