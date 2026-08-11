@@ -4,6 +4,20 @@ import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { normalizeEvents, eventTimeLabel, type CalendarEvent } from "@/lib/calendar";
 import { useDenverToday } from "@/lib/denver";
 
+type EventPhase = "past" | "current" | "future";
+
+/** Instant comparison — ISO stamps are absolute, so Denver is only a label. */
+function eventPhase(e: CalendarEvent, now: number): EventPhase {
+  if (e.allDay || !e.start) return "future";
+  const start = new Date(e.start).getTime();
+  if (Number.isNaN(start)) return "future";
+  const end = e.end ? new Date(e.end).getTime() : NaN;
+  const finish = Number.isNaN(end) ? start : end;
+  if (now >= finish) return "past";
+  if (now >= start) return "current";
+  return "future";
+}
+
 export function CalendarToday({
   secret,
   dense = false,
@@ -19,6 +33,13 @@ export function CalendarToday({
   const [events, setEvents] = useState<CalendarEvent[] | null>(null);
   // null until state lands, so the notice never flashes before the flag is known.
   const [configured, setConfigured] = useState<boolean | null>(null);
+  // Re-evaluate past/current/future every 60s so states change in place.
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   useDashboardSync(
     secret,
@@ -66,21 +87,49 @@ export function CalendarToday({
         </div>
       ) : null}
       <ul className="w-full">
-        {events.map((e, i) => (
-          <li
-            key={`${e.title}-${e.start ?? i}`}
-            className={`flex w-full items-center gap-3 border-t border-border px-4 ${
-              dense ? "h-[34px]" : "h-[44px]"
-            }`}
-          >
-            <span className="w-[54px] shrink-0 font-mono text-[11px] text-muted">
-              {eventTimeLabel(e)}
-            </span>
-            <span className="min-w-0 flex-1 truncate font-sans text-[15px] text-foreground">
-              {e.title}
-            </span>
-          </li>
-        ))}
+        {events.map((e, i) => {
+          const phase = eventPhase(e, now);
+          return (
+            <li
+              key={`${e.title}-${e.start ?? i}`}
+              className={`flex w-full items-center gap-3 border-t border-border pr-4 ${
+                dense ? "h-[34px]" : "h-[44px]"
+              }`}
+              style={{
+                // 2px bar + 8px gap on current rows; identical inset otherwise.
+                borderLeft: phase === "current" ? "2px solid var(--accent)" : "2px solid transparent",
+                paddingLeft: "8px",
+              }}
+            >
+              <span
+                className="w-[54px] shrink-0 font-mono text-[11px]"
+                style={{
+                  color:
+                    phase === "past"
+                      ? "#5A5F68"
+                      : phase === "current"
+                        ? "var(--accent)"
+                        : "var(--muted)",
+                }}
+              >
+                {eventTimeLabel(e)}
+              </span>
+              <span
+                className="min-w-0 flex-1 truncate font-sans text-[15px]"
+                style={{
+                  color:
+                    phase === "past"
+                      ? "#5A5F68"
+                      : phase === "current"
+                        ? "#FFFFFF"
+                        : "var(--foreground)",
+                }}
+              >
+                {e.title}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
