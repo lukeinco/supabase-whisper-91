@@ -158,6 +158,14 @@ export function MobileShell({ secret }: { secret: string }) {
             </div>
           </>
         ) : null}
+        {tab === "budget" ? (
+          <div className="mb-4">
+            <p className="px-4 pb-1 font-mono text-[11px] text-muted">income</p>
+            <div className="-mx-4">
+              <BudgetView secret={secret} kind="income" />
+            </div>
+          </div>
+        ) : null}
         <div className="flex flex-col gap-4">
           {[...WIDGETS]
             .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
