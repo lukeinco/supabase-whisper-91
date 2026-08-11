@@ -287,7 +287,11 @@ function RoutineRow({
         >
           {r.title}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-muted">{scheduleLabel(r)}</span>
+        <span className="flex shrink-0 items-center gap-[5px] font-mono text-[11px] text-muted">
+          <RoutineFrequencyIcon kind={frequencyKindOf(r)} nth={r.repeat_nth} size={14} />
+          {scheduleLabel(r)}
+        </span>
+
       </span>
 
       <button
