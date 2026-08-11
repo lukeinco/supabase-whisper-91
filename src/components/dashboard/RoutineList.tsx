@@ -334,7 +334,7 @@ function RoutineEditor({
           type="date"
           value={d.start_date}
           onChange={(e) => set("start_date", e.target.value)}
-          className={`${editFieldClass} font-mono text-[12px] text-foreground`}
+          className={`${editFieldClass} font-mono text-[12px] text-foreground [color-scheme:dark]`}
         />
       </label>
 
