@@ -524,3 +524,35 @@ function CategoryName({
     </span>
   );
 }
+
+function LineRow({
+  line,
+  onEnterEdit,
+  onDelete,
+}: {
+  line: BudgetLine;
+  onEnterEdit: () => void;
+  onDelete: () => void;
+}) {
+  const gesture = useEditGesture(onEnterEdit);
+  return (
+    <li
+      {...gesture}
+      className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4"
+    >
+      <span className="shrink-0 font-mono text-[11px] text-muted">{shortDate(line.ymd)}</span>
+      <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
+        {line.label}
+      </span>
+      <span className="shrink-0 font-mono text-[12px] text-foreground">{money(line.amount)}</span>
+      <button
+        type="button"
+        aria-label="delete"
+        onClick={onDelete}
+        className="shrink-0 font-mono text-[12px] text-muted opacity-40 transition-opacity hover:opacity-100"
+      >
+        ×
+      </button>
+    </li>
+  );
+}
