@@ -52,7 +52,7 @@ function repeatOptionOf(r: Routine): RepeatOption {
   if (r.repeat_kind === "weekly") return r.repeat_interval > 1 ? "n_weeks" : "weekly";
   if (r.repeat_kind === "nth_weekday_of_month") {
     if (r.repeat_nth === -1) return "nth_last";
-    return (`nth${r.repeat_nth}` as RepeatOption) ?? "nth1";
+    return `nth${r.repeat_nth}` as RepeatOption;
   }
   return "daily";
 }
