@@ -314,11 +314,57 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     return <p className="px-4 py-3 font-mono text-[12px] text-muted">loading…</p>;
   }
 
+  function addTodo(title: string) {
+    const clean = title.trim();
+    setAddingTodo(false);
+    if (!clean) return;
+    setTodos((prev) => [
+      ...(prev ?? []),
+      {
+        id: `tmp-${Date.now()}`,
+        title: clean,
+        folder_id: null,
+        due_ymd: null,
+        position: prev?.length ?? 0,
+        recur_rule: null,
+        deferred_count: 0,
+        deferral_history: [],
+      },
+    ]);
+    send("created", { title: clean, due_at: null });
+  }
+
   return (
     <div ref={listRef} className="w-full min-w-0 pb-2">
-      {todos.length === 0 ? (
-        <EmptyAction onClick={focusCapture}>nothing due — add one</EmptyAction>
+      {todos.length === 0 && !addingTodo ? (
+        <EmptyAction onClick={() => setAddingTodo(true)}>nothing due — add one</EmptyAction>
       ) : null}
+      {addingTodo ? (
+        <div
+          className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+        >
+          <input
+            autoFocus
+            placeholder="to-do"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addTodo(e.currentTarget.value);
+              if (e.key === "Escape") setAddingTodo(false);
+            }}
+            className={`min-w-0 flex-1 bg-transparent font-sans ${textSize} text-foreground placeholder:text-muted outline-none`}
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              const input = e.currentTarget.parentElement?.querySelector("input");
+              if (input) addTodo(input.value);
+            }}
+            className="shrink-0 font-mono text-[11px] text-muted"
+          >
+            save
+          </button>
+        </div>
+      ) : null}
+
       {dueNow.length > 0 ? (
         <div className="mb-3">
           <p className="px-4 py-2 font-mono text-[11px] text-accent">due now</p>
