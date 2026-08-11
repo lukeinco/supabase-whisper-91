@@ -7,6 +7,7 @@ import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
 import { GroupAddRow } from "./GroupAddRow";
+import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
 import { dueLabel, isDueNow, useDenverToday, ymdToISO } from "@/lib/denver";
 import type { DashboardState } from "@/lib/api";
 import {
@@ -38,9 +39,9 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   const today = useDenverToday();
   const [todos, setTodos] = useState<Todo[] | null>(null);
   const [folders, setFolders] = useState<Folder[]>([UNFILED]);
-  const [editing, setEditing] = useState<string | null>(null);
+  const edit = useEditing();
   const [dragId, setDragId] = useState<string | null>(null);
-  const [editingFolder, setEditingFolder] = useState<string | null>(null);
+  const folderEdit = useEditing();
   const [addingFolder, setAddingFolder] = useState(false);
   const [addingTodo, setAddingTodo] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -152,7 +153,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
 
   function rename(t: Todo, title: string) {
     const clean = title.trim();
-    setEditing(null);
+    edit.end();
     if (!clean || clean === t.title) return;
     setTodos((prev) => (prev ?? []).map((x) => (x.id === t.id ? { ...x, title: clean } : x)));
     send("edited", { id: t.id, title: clean });
@@ -192,7 +193,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   );
 
   function onPointerDown(e: React.PointerEvent, t: Todo) {
-    if (editing) return;
+    if (edit.editing) return;
     const folder = t.folder_id ?? UNFILED.id;
     if (isDueNow(t.due_ymd, today)) return; // pinned block is date-ordered
     const state = { id: t.id, folder, started: false } as {
@@ -271,7 +272,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
 
   function renameFolder(f: Folder, name: string) {
     const clean = name.trim();
-    setEditingFolder(null);
+    folderEdit.end();
     if (!clean || clean === f.name) return;
     setFolders((prev) => prev.map((x) => (x.id === f.id ? { ...x, name: clean } : x)));
     sendFolder("edited", { id: f.id, name: clean });
@@ -301,9 +302,10 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       rowH={rowH}
       textSize={textSize}
       dragging={dragId === t.id}
-      editing={editing === t.id}
-      onEdit={() => setEditing(t.id)}
-      onCancelEdit={() => setEditing(null)}
+      editing={edit.editing === t.id}
+      editRef={edit.editing === t.id ? edit.editRef : undefined}
+      onEdit={() => edit.begin(t.id)}
+      onCancelEdit={edit.end}
       onRename={(v) => rename(t, v)}
       onComplete={() => complete(t)}
       onRemove={() => remove(t)}
@@ -408,38 +410,35 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
           .filter((g) => g.folder.id !== UNFILED.id)
           .map(({ folder, items }) => (
           <div key={folder.id} className="rounded-[6px] border border-muted/25">
-            <div className="flex items-center gap-2 px-3 pt-2">
-              {editingFolder === folder.id ? (
-                <input
-                  autoFocus
-                  defaultValue={folder.name}
-                  onBlur={(e) => renameFolder(folder, e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") renameFolder(folder, e.currentTarget.value);
-                    if (e.key === "Escape") setEditingFolder(null);
-                  }}
-                  className="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-foreground outline-none"
+            <div
+              className="flex items-center gap-2 px-3 pt-2"
+              ref={folderEdit.editing === folder.id ? folderEdit.editRef : undefined}
+            >
+              {folderEdit.editing === folder.id ? (
+                <FolderNameEdit
+                  name={folder.name}
+                  onSave={(v) => renameFolder(folder, v)}
+                  onCancel={folderEdit.end}
                 />
               ) : (
-                <button
-                  type="button"
-                  onClick={() =>
-                    folder.id === UNFILED.id ? undefined : setEditingFolder(folder.id)
-                  }
-                  className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-muted"
-                >
-                  {folder.name}
-                </button>
-              )}
-              {folder.id === UNFILED.id ? null : (
-                <button
-                  type="button"
-                  aria-label="delete folder"
-                  onClick={() => removeFolder(folder)}
-                  className="shrink-0 font-mono text-[13px] text-muted opacity-40"
-                >
-                  ×
-                </button>
+                <>
+                  <FolderName
+                    name={folder.name}
+                    onEnterEdit={() =>
+                      folder.id === UNFILED.id ? undefined : folderEdit.begin(folder.id)
+                    }
+                  />
+                  {folder.id === UNFILED.id ? null : (
+                    <button
+                      type="button"
+                      aria-label="delete folder"
+                      onClick={() => removeFolder(folder)}
+                      className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+                    >
+                      ×
+                    </button>
+                  )}
+                </>
               )}
             </div>
             <div className="mt-1">
@@ -506,6 +505,7 @@ type RowProps = {
   textSize: string;
   dragging: boolean;
   editing: boolean;
+  editRef: ((el: HTMLElement | null) => void) | undefined;
   completed: boolean;
   hop: boolean;
   onEdit: () => void;
@@ -529,6 +529,7 @@ function TodoRow({
   textSize,
   dragging,
   editing,
+  editRef,
   completed,
   hop,
   onEdit,
@@ -544,6 +545,33 @@ function TodoRow({
   onFile,
 }: RowProps) {
   const label = t.due_ymd ? dueLabel(t.due_ymd, today) : null;
+  const gesture = useEditGesture(onEdit);
+  const [value, setValue] = useState(t.title);
+  useEffect(() => {
+    if (editing) setValue(t.title);
+  }, [editing, t.title]);
+
+  if (editing) {
+    return (
+      <div
+        ref={editRef}
+        className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+      >
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onRename(value);
+            if (e.key === "Escape") onCancelEdit();
+          }}
+          className={`${editFieldClass} font-sans ${textSize} text-foreground`}
+        />
+        <EditControls onSave={() => onRename(value)} onCancel={onCancelEdit} />
+      </div>
+    );
+  }
+
   return (
     <div
       data-todo-id={t.id}
@@ -563,28 +591,14 @@ function TodoRow({
         onClick={onComplete}
         className="size-[13px] shrink-0 rounded-[2px] border border-muted/50"
       />
-      {editing ? (
-        <input
-          autoFocus
-          defaultValue={t.title}
-          onBlur={(e) => onRename(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onRename(e.currentTarget.value);
-            if (e.key === "Escape") onCancelEdit();
-          }}
-          className={`min-w-0 flex-1 bg-transparent font-sans ${textSize} text-foreground outline-none`}
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={onEdit}
-          className={`min-w-0 flex-1 truncate text-left font-sans ${textSize} ${
-            completed ? "text-muted line-through" : "text-foreground"
-          }`}
-        >
-          {t.title}
-        </button>
-      )}
+      <span
+        {...gesture}
+        className={`min-w-0 flex-1 truncate text-left font-sans ${textSize} ${
+          completed ? "text-muted line-through" : "text-foreground"
+        }`}
+      >
+        {t.title}
+      </span>
       <Popover>
         <PopoverTrigger asChild>
           <button
@@ -637,5 +651,41 @@ function TodoRow({
         ×
       </button>
     </div>
+  );
+}
+
+function FolderName({ name, onEnterEdit }: { name: string; onEnterEdit: () => void }) {
+  const gesture = useEditGesture(onEnterEdit);
+  return (
+    <span {...gesture} className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted">
+      {name}
+    </span>
+  );
+}
+
+function FolderNameEdit({
+  name,
+  onSave,
+  onCancel,
+}: {
+  name: string;
+  onSave: (value: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(name);
+  return (
+    <>
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSave(value);
+          if (e.key === "Escape") onCancel();
+        }}
+        className={`${editFieldClass} font-mono text-[11px] text-foreground`}
+      />
+      <EditControls onSave={() => onSave(value)} onCancel={onCancel} />
+    </>
   );
 }
