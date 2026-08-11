@@ -112,7 +112,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
     setPending((p) => ({
       ...p,
       [b.id]: {
-        amount: "",
+        amount: b.price != null ? String(b.price) : "",
         budgetCategoryId: matchBudgetCategory(cat, budgetCategories),
         fading: false,
       },
@@ -150,12 +150,18 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
     });
   }
 
-  function rename(b: BuyItem, title: string) {
+  function saveItem(b: BuyItem, title: string, priceText: string) {
     const clean = title.trim();
+    const raw = priceText.trim();
+    const price = raw === "" ? null : Number(raw.replace(/[^0-9.]/g, ""));
+    const nextPrice = price !== null && Number.isFinite(price) ? price : null;
     edit.end();
-    if (!clean || clean === b.title) return;
-    setItems((prev) => (prev ?? []).map((x) => (x.id === b.id ? { ...x, title: clean } : x)));
-    send("edited", { id: b.id, title: clean });
+    if (!clean) return;
+    if (clean === b.title && nextPrice === b.price) return;
+    setItems((prev) =>
+      (prev ?? []).map((x) => (x.id === b.id ? { ...x, title: clean, price: nextPrice } : x)),
+    );
+    send("edited", { id: b.id, title: clean, estimated_amount: nextPrice });
   }
 
   function addCategory(name: string) {
@@ -315,7 +321,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                         editRef={edit.editing === b.id ? edit.editRef : undefined}
                         onEnterEdit={() => edit.begin(b.id)}
                         onCancelEdit={edit.end}
-                        onSave={(v) => rename(b, v)}
+                        onSave={(title, price) => saveItem(b, title, price)}
                         onCheck={() => check(b)}
                         onRemove={() => remove(b)}
                       />
@@ -446,15 +452,19 @@ function BuyRow({
   editRef: ((el: HTMLElement | null) => void) | undefined;
   onEnterEdit: () => void;
   onCancelEdit: () => void;
-  onSave: (value: string) => void;
+  onSave: (title: string, price: string) => void;
   onCheck: () => void;
   onRemove: () => void;
 }) {
   const gesture = useEditGesture(onEnterEdit);
   const [value, setValue] = useState(b.title);
+  const [price, setPrice] = useState(b.price != null ? String(b.price) : "");
   useEffect(() => {
-    if (editing) setValue(b.title);
-  }, [editing, b.title]);
+    if (editing) {
+      setValue(b.title);
+      setPrice(b.price != null ? String(b.price) : "");
+    }
+  }, [editing, b.title, b.price]);
 
   return (
     <div
@@ -468,12 +478,24 @@ function BuyRow({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") onSave(value);
+              if (e.key === "Enter") onSave(value, price);
               if (e.key === "Escape") onCancelEdit();
             }}
             className={`${editFieldClass} font-sans ${textSize} text-foreground`}
           />
-          <EditControls onSave={() => onSave(value)} onCancel={onCancelEdit} />
+          <span className="shrink-0 font-mono text-[11px] text-muted">$</span>
+          <input
+            value={price}
+            inputMode="decimal"
+            placeholder="price"
+            onChange={(e) => setPrice(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSave(value, price);
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className="w-[56px] shrink-0 border-0 border-b border-muted bg-transparent font-mono text-[12px] text-foreground placeholder:text-muted outline-none focus:outline-none"
+          />
+          <EditControls onSave={() => onSave(value, price)} onCancel={onCancelEdit} />
         </>
       ) : (
         <>
@@ -491,6 +513,11 @@ function BuyRow({
           >
             {b.title}
           </span>
+          {b.price != null ? (
+            <span className="shrink-0 font-mono text-[11px] text-muted">
+              ${b.price.toFixed(2).replace(/\.00$/, "")}
+            </span>
+          ) : null}
           <button
             type="button"
             aria-label="delete"
