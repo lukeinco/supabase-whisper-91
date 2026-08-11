@@ -54,7 +54,10 @@ export function DesktopGrid({
     getLayout(secret)
       .then(({ layout: saved }) => {
         if (!active) return;
-        setLayout(saved && saved.length ? saved : DEFAULT_LAYOUT);
+        // Merge in defaults for widgets added after this layout was saved.
+        const base = saved && saved.length ? saved : DEFAULT_LAYOUT;
+        const missing = DEFAULT_LAYOUT.filter((d) => !base.some((l) => l.i === d.i));
+        setLayout([...base, ...missing]);
         setLoading(false);
       })
       .catch((e: unknown) => {
