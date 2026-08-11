@@ -16,6 +16,7 @@ import { WaitingOn } from "./WaitingOn";
 import { Scratchpad } from "./Scratchpad";
 import { NextReminder } from "./NextReminder";
 import { ReviewQueue } from "./ReviewQueue";
+import { ReminderList } from "./ReminderList";
 import { useReminderHub } from "./useReminderHub";
 import { AskClaude } from "./AskClaude";
 import { CommandOverlay, type OverlayMode } from "./CommandOverlay";
