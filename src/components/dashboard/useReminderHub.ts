@@ -94,6 +94,7 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
           },
         },
       });
+    }
   }, [reminders, now, send]);
 
   const resolve = useCallback((card: ReviewCard, record: boolean) => {
