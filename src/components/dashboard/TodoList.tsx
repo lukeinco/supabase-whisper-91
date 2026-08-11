@@ -38,6 +38,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [editingFolder, setEditingFolder] = useState<string | null>(null);
   const [addingFolder, setAddingFolder] = useState(false);
+  const [addingTodo, setAddingTodo] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const hoppedRef = useRef<Set<string>>(new Set());
 
