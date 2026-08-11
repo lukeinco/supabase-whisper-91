@@ -1,5 +1,5 @@
 import { normalizeTodos } from "./todos";
-import { normalizeBuyItems } from "./buy";
+import { normalizeBuyCategories, normalizeBuyItems } from "./buy";
 import { normalizeNotes, normalizeWaiting } from "./modules";
 import type { CalendarEvent } from "./calendar";
 import { eventTimeLabel } from "./calendar";
