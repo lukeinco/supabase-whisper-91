@@ -1,5 +1,8 @@
 import { useCallback, useRef, useState } from "react";
+import { refreshState } from "@/lib/api";
+import { useStateVersion } from "@/lib/state-cache";
 import { DashboardHeader } from "./DashboardHeader";
+
 import { WeatherLine } from "./WeatherLine";
 import { CaptureBar } from "./CaptureBar";
 import { TabBar, type TabId } from "./TabBar";
