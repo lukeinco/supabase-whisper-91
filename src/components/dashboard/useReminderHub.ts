@@ -126,6 +126,30 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
     [send],
   );
 
+  const addReminder = useCallback(
+    (title: string, fireAt: string) => {
+      const clean = title.trim();
+      if (!clean) return;
+      setReminders((prev) => [
+        ...prev,
+        {
+          id: `tmp-${Date.now()}`,
+          title: clean,
+          fire_at: fireAt,
+          fireMs: new Date(fireAt).getTime(),
+        } as Reminder,
+      ]);
+      mutate(secret, "reminder", "created", { title: clean, fire_at: fireAt })
+        .then(() => load())
+        .catch((e: unknown) => {
+          if (e instanceof UnauthorizedError) onUnauthorized?.();
+        });
+    },
+    [secret, onUnauthorized, load],
+  );
+
+
+
   return {
     next: nextReminder(reminders, now),
     reminders: reminders.filter((r) => !resolved.has(r.id)),
