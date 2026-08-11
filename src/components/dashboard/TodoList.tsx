@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { getState, mutate, UnauthorizedError } from "@/lib/api";
-import { EmptyAction, focusCapture } from "./primitives";
+import { EmptyAction } from "./primitives";
 import { dueLabel, isDueNow, useDenverToday, ymdToISO } from "@/lib/denver";
 import {
   nextOccurrence,
