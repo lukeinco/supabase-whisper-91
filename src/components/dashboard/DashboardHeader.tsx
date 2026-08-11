@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { useOffline } from "@/lib/state-cache";
 import { WeatherLine } from "./WeatherLine";
+
 
 export function formatDate(d: Date) {
   return d.toLocaleDateString("en-US", {
