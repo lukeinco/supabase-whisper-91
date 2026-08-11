@@ -93,6 +93,52 @@ export function BudgetView({
     setDraft({ name: c.name, amount: String(c.monthly_budget || ""), spread: c.spread });
   }
 
+  function toggleExpand(id: string) {
+    setEditing(null);
+    setEntry({ amount: "", label: "" });
+    setExpanded((prev) => (prev === id ? null : id));
+  }
+
+  async function sendLine(action: string, payload: Record<string, unknown>) {
+    try {
+      await mutate(secret, "budget_line", action, payload);
+    } catch (e) {
+      if (e instanceof UnauthorizedError) onUnauthorized?.();
+    }
+    load();
+  }
+
+  function removeLine(l: BudgetLine) {
+    if (!l.id) return;
+    const id = l.id;
+    setLines((prev) => prev.filter((x) => x.id !== id));
+    void sendLine("deleted", { id });
+    toast("deleted", {
+      duration: 5000,
+      action: {
+        label: "undo",
+        onClick: () => {
+          setLines((prev) => [...prev, l]);
+          void sendLine("edited", { id, deleted_at: null });
+        },
+      },
+    });
+  }
+
+  function addLine(categoryId: string) {
+    const amount = Number(entry.amount.replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(amount) || amount === 0) return;
+    const label = entry.label.trim();
+    setEntry({ amount: "", label: "" });
+    amountRef.current?.focus();
+    setLines((prev) => [
+      ...prev,
+      { id: null, category_id: categoryId, amount, label, ymd: today },
+    ]);
+    void sendLine("created", { category_id: categoryId, amount, label });
+  }
+
+
   async function save(id: string | null) {
     const payload = {
       ...(id ? { id } : {}),
