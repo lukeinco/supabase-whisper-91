@@ -48,6 +48,7 @@ function Index() {
   const [denied, setDenied] = useState(false);
   const isMobile = useIsMobile();
   const onUnauthorized = useCallback(() => setDenied(true), []);
+  const version = useStateVersion();
 
   useEffect(() => {
     if (!secret) return;
@@ -59,6 +60,14 @@ function Index() {
       cancelled = true;
     };
   }, [secret]);
+
+  // A background refresh that 401s is the only thing that revokes access;
+  // a plain network failure keeps cached data on screen instead.
+  useEffect(() => {
+    if (isUnauthorized()) setDenied(true);
+  }, [version]);
+
+
 
   if (!ready) return <div className="min-h-[100dvh] bg-background" />;
   if (!secret || denied) return <NoKey />;
