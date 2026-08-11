@@ -65,12 +65,9 @@ export function normalizeBudgetLines(state: unknown): BudgetLine[] {
       const r = l as Raw;
       if (r["deleted_at"]) return null;
       return {
-        category_id:
-          str(r["budget_category_id"]) ?? str(r["category_id"]) ?? str(r["category"]),
+        category_id: str(r["budget_category_id"]) ?? str(r["category_id"]) ?? str(r["category"]),
         amount: num(r["amount"]),
-        ymd: toDenverYMD(
-          str(r["spent_at"]) ?? str(r["occurred_at"]) ?? str(r["created_at"]),
-        ),
+        ymd: toDenverYMD(str(r["spent_at"]) ?? str(r["occurred_at"]) ?? str(r["created_at"])),
       } satisfies BudgetLine;
     })
     .filter((l): l is BudgetLine => l !== null);
@@ -125,10 +122,7 @@ export function monthInfo(todayYMD: string): MonthInfo {
 }
 
 /** Month-to-date spend per category id. */
-export function spendByCategory(
-  lines: BudgetLine[],
-  prefix: string,
-): Record<string, number> {
+export function spendByCategory(lines: BudgetLine[], prefix: string): Record<string, number> {
   const out: Record<string, number> = {};
   for (const l of lines) {
     if (!l.category_id || !l.ymd || !l.ymd.startsWith(prefix)) continue;

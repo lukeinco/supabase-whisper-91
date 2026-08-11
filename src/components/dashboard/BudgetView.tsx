@@ -16,15 +16,7 @@ import { EmptyAction, EmptyLine, LoadingLine } from "./primitives";
 
 type Draft = { name: string; amount: string; spread: boolean };
 
-function Bar({
-  ratio,
-  over,
-  tick,
-}: {
-  ratio: number;
-  over: boolean;
-  tick: number | null;
-}) {
+function Bar({ ratio, over, tick }: { ratio: number; over: boolean; tick: number | null }) {
   return (
     <div className="relative h-[6px] w-full max-w-full rounded-[3px] bg-muted/20">
       <div
@@ -170,9 +162,7 @@ export function BudgetView({
           <span className="font-sans text-[16px] text-foreground">{month.name}</span>
           <span className="shrink-0 font-mono text-[12px] text-muted">
             {money(totalSpent)} / {money(totalBudget)}
-            {overage > 0 ? (
-              <span className="text-accent"> · {money(-overage)}</span>
-            ) : null}
+            {overage > 0 ? <span className="text-accent"> · {money(-overage)}</span> : null}
           </span>
         </div>
         <p className="pt-1 font-mono text-[11px] text-muted">
@@ -222,11 +212,7 @@ export function BudgetView({
                   </span>
                 </button>
                 <div className="pt-2">
-                  <Bar
-                    ratio={ratio}
-                    over={over}
-                    tick={c.spread ? month.elapsedRatio : null}
-                  />
+                  <Bar ratio={ratio} over={over} tick={c.spread ? month.elapsedRatio : null} />
                 </div>
                 <p className="pt-1 font-mono text-[11px] text-muted">
                   {pct(ratio)} spent
@@ -266,9 +252,7 @@ export function BudgetView({
                   {money(-Math.abs(card.amount))}
                 </span>
               </div>
-              <p className="pt-1 font-mono text-[11px] text-muted">
-                clears when back in budget
-              </p>
+              <p className="pt-1 font-mono text-[11px] text-muted">clears when back in budget</p>
             </li>
           ))}
         </ul>

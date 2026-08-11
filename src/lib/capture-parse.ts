@@ -17,26 +17,61 @@ export type NamedCategory = { id: string; name: string };
 
 const BUY_KEYWORDS: Record<string, string[]> = {
   grocery: [
-    "milk", "eggs", "bread", "coffee", "butter", "cheese", "rice", "pasta",
-    "chicken", "banana", "bananas", "apples", "groceries", "grocery", "sugar",
-    "flour", "yogurt", "onions", "beer", "wine", "snacks",
+    "milk",
+    "eggs",
+    "bread",
+    "coffee",
+    "butter",
+    "cheese",
+    "rice",
+    "pasta",
+    "chicken",
+    "banana",
+    "bananas",
+    "apples",
+    "groceries",
+    "grocery",
+    "sugar",
+    "flour",
+    "yogurt",
+    "onions",
+    "beer",
+    "wine",
+    "snacks",
   ],
   hardware: [
-    "screws", "nails", "drill", "lumber", "paint", "sandpaper", "hammer",
-    "bolts", "wrench", "tape measure", "hardware", "caulk", "wd40",
+    "screws",
+    "nails",
+    "drill",
+    "lumber",
+    "paint",
+    "sandpaper",
+    "hammer",
+    "bolts",
+    "wrench",
+    "tape measure",
+    "hardware",
+    "caulk",
+    "wd40",
   ],
   household: [
-    "soap", "detergent", "paper towels", "toilet paper", "trash bags",
-    "sponges", "shampoo", "toothpaste", "batteries", "light bulbs", "bleach",
+    "soap",
+    "detergent",
+    "paper towels",
+    "toilet paper",
+    "trash bags",
+    "sponges",
+    "shampoo",
+    "toothpaste",
+    "batteries",
+    "light bulbs",
+    "bleach",
     "household",
   ],
 };
 
 /** Guess one of the user's own buy categories from the text. */
-export function guessBuyCategory<T extends NamedCategory>(
-  text: string,
-  categories: T[],
-): T | null {
+export function guessBuyCategory<T extends NamedCategory>(text: string, categories: T[]): T | null {
   const t = ` ${text.toLowerCase()} `;
   for (const cat of categories) {
     const name = cat.name.trim().toLowerCase();
@@ -48,23 +83,49 @@ export function guessBuyCategory<T extends NamedCategory>(
   return null;
 }
 
-const WEEKDAYS = [
-  "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
-];
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 const NUMBER_WORDS: Record<string, number> = {
-  one: 1, a: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
-  eight: 8, nine: 9, ten: 10,
+  one: 1,
+  a: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
 };
 
 const ORDINALS: Record<string, number> = {
-  first: 1, "1st": 1, second: 2, "2nd": 2, third: 3, "3rd": 3, fourth: 4,
-  "4th": 4, fifth: 5, "5th": 5, last: -1,
+  first: 1,
+  "1st": 1,
+  second: 2,
+  "2nd": 2,
+  third: 3,
+  "3rd": 3,
+  fourth: 4,
+  "4th": 4,
+  fifth: 5,
+  "5th": 5,
+  last: -1,
 };
 
 const MONTHS = [
-  "january", "february", "march", "april", "may", "june", "july", "august",
-  "september", "october", "november", "december",
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
 ];
 
 function atNoon(d: Date) {
@@ -149,9 +210,7 @@ export function parseDate(text: string, ref = new Date()): DateHit | null {
       return {
         date: atNoon(new Date(d)),
         match: r.text,
-        time: hasTime
-          ? { hour: d.getHours(), minute: d.getMinutes() }
-          : null,
+        time: hasTime ? { hour: d.getHours(), minute: d.getMinutes() } : null,
       };
     })()
   );

@@ -100,7 +100,12 @@ export function DesktopGrid({
                   </div>
                 ) : null}
                 <DueNowToday secret={secret} dense onUnauthorized={onUnauthorized} />
-                <CalendarToday secret={secret} dense showLabel={false} onUnauthorized={onUnauthorized} />
+                <CalendarToday
+                  secret={secret}
+                  dense
+                  showLabel={false}
+                  onUnauthorized={onUnauthorized}
+                />
               </>
             ) : w.id === "to-do" ? (
               <TodoList secret={secret} dense onUnauthorized={onUnauthorized} />
@@ -139,7 +144,6 @@ export function DesktopGrid({
       if (e instanceof UnauthorizedError) onUnauthorized();
     });
   }
-
 
   return (
     <div ref={containerRef} className="w-full">

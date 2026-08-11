@@ -56,13 +56,7 @@ async function fetchWeather(lat: number, lon: number): Promise<Weather | null> {
   const low = d?.temperature_2m_min?.[0];
   const sunrise = d?.sunrise?.[0];
   const sunset = d?.sunset?.[0];
-  if (
-    temp === undefined ||
-    high === undefined ||
-    low === undefined ||
-    !sunrise ||
-    !sunset
-  ) {
+  if (temp === undefined || high === undefined || low === undefined || !sunrise || !sunset) {
     return null;
   }
   return {

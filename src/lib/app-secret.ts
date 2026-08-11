@@ -25,6 +25,5 @@ export function useAppSecret() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-
   return { secret, ready, clear: () => setSecret(null) };
 }

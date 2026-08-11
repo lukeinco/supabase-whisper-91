@@ -1,11 +1,5 @@
 export type WidgetId =
-  | "today"
-  | "routine"
-  | "to-do"
-  | "to-buy"
-  | "budget"
-  | "waiting-on"
-  | "scratchpad";
+  "today" | "routine" | "to-do" | "to-buy" | "budget" | "waiting-on" | "scratchpad";
 
 export type WidgetDef = {
   id: WidgetId;

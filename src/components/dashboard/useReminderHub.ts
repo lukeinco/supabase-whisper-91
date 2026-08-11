@@ -113,9 +113,7 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
     [send, resolve],
   );
 
-  const stack = [...dueReminderCards(reminders, now), ...cards].filter(
-    (c) => !resolved.has(c.id),
-  );
+  const stack = [...dueReminderCards(reminders, now), ...cards].filter((c) => !resolved.has(c.id));
 
   return {
     next: nextReminder(reminders, now),

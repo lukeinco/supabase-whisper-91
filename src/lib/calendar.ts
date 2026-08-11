@@ -73,9 +73,10 @@ function denverOffsetMinutes(utcGuess: Date): number {
     minute: "2-digit",
     second: "2-digit",
   });
-  const p = Object.fromEntries(
-    dtf.formatToParts(utcGuess).map((x) => [x.type, x.value]),
-  ) as Record<string, string>;
+  const p = Object.fromEntries(dtf.formatToParts(utcGuess).map((x) => [x.type, x.value])) as Record<
+    string,
+    string
+  >;
   const asUTC = Date.UTC(
     Number(p["year"]),
     Number(p["month"]) - 1,
@@ -147,8 +148,7 @@ export function repeatToRRule(input: string): string | null {
   if (!s) return null;
 
   if (/^(daily|every ?day)$/.test(s)) return "FREQ=DAILY";
-  if (/^(weekdays|every weekday)$/.test(s))
-    return "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR";
+  if (/^(weekdays|every weekday)$/.test(s)) return "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR";
   if (/^(weekly|every ?week)$/.test(s)) return "FREQ=WEEKLY";
   if (/^(biweekly|every other week)$/.test(s)) return "FREQ=WEEKLY;INTERVAL=2";
   if (/^(monthly|every ?month)$/.test(s)) return "FREQ=MONTHLY";
@@ -208,9 +208,7 @@ export function googleCalendarUrl(draft: EventDraft): string {
 
   params.push(["ctz", TZ]);
 
-  const qs = params
-    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
-    .join("&");
+  const qs = params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
   return `https://calendar.google.com/calendar/render?${qs}`;
 }
 
@@ -243,7 +241,10 @@ export function buildICS(draft: EventDraft): string {
   }
   if (draft.location.trim()) lines.push(`LOCATION:${escapeICS(draft.location.trim())}`);
   if (draft.notes.trim()) lines.push(`DESCRIPTION:${escapeICS(draft.notes.trim())}`);
-  for (const g of draft.guests.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean)) {
+  for (const g of draft.guests
+    .split(/[,\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean)) {
     lines.push(`ATTENDEE;CN=${escapeICS(g)}:mailto:${g}`);
   }
   const rrule = repeatToRRule(draft.repeat);

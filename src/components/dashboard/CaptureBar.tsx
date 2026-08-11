@@ -28,14 +28,13 @@ function useCaptureState(secret: string | null) {
       .then((state) => {
         if (!alive || !state) return;
         setBuyCategories(normalizeBuyCategories(state));
-        const raw = (state as Record<string, unknown>)["budget_categories"] ??
+        const raw =
+          (state as Record<string, unknown>)["budget_categories"] ??
           (state as Record<string, unknown>)["budgetCategories"];
         if (Array.isArray(raw)) {
           setBudgetCategories(
             raw
-              .map((c) =>
-                typeof c === "string" ? c : ((c as { name?: string })?.name ?? ""),
-              )
+              .map((c) => (typeof c === "string" ? c : ((c as { name?: string })?.name ?? "")))
               .filter(Boolean),
           );
         }
@@ -67,10 +66,7 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
 
   const { budgetCategories, buyCategories } = useCaptureState(secret ?? null);
 
-  const parsed = useMemo(
-    () => parseCapture(value, budgetCategories),
-    [value, budgetCategories],
-  );
+  const parsed = useMemo(() => parseCapture(value, budgetCategories), [value, budgetCategories]);
 
   // reset overrides when the input text changes shape
   useEffect(() => {
@@ -81,11 +77,8 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
     setOpen(false);
   }, [parsed?.kind]);
 
-  const buyGuess =
-    parsed?.kind === "todo" ? guessBuyCategory(parsed.title, buyCategories) : null;
-  const cycleOptions: (BuyCategory | null)[] = buyGuess
-    ? [null, ...buyCategories]
-    : [null];
+  const buyGuess = parsed?.kind === "todo" ? guessBuyCategory(parsed.title, buyCategories) : null;
+  const cycleOptions: (BuyCategory | null)[] = buyGuess ? [null, ...buyCategories] : [null];
   const cycleValue = cycleOptions[cycleIndex % cycleOptions.length] ?? null;
 
   const due = dueOverride ?? parsed?.due ?? null;
@@ -98,9 +91,7 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
     chipLabel = `→ $${parsed.amount}${expenseCat ? ` · ${expenseCat}` : ""}`;
     chipMode = budgetCategories.length ? "categories" : "none";
   } else if (parsed && due && time) {
-    chipLabel = remind
-      ? `→ remind ${formatTimeLabel(time.hour, time.minute)}`
-      : "→ to-do";
+    chipLabel = remind ? `→ remind ${formatTimeLabel(time.hour, time.minute)}` : "→ to-do";
     chipMode = "remind";
   } else if (parsed && due) {
     chipLabel = `→ ${formatChipDate(due)}`;
@@ -136,11 +127,7 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
       }`;
     } else if (snapshot.remind && snapshot.due && snapshot.time) {
       entity = "reminder";
-      const fireAt = denverISO(
-        localYMD(snapshot.due),
-        snapshot.time.hour,
-        snapshot.time.minute,
-      );
+      const fireAt = denverISO(localYMD(snapshot.due), snapshot.time.hour, snapshot.time.minute);
       payload = { title: snapshot.parsed.title, fire_at: fireAt };
       where = `reminder · ${formatToastDate(snapshot.due)} ${formatTimeLabel(
         snapshot.time.hour,
@@ -163,12 +150,7 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
 
     let id: string | null = null;
     try {
-      const res = await mutate<{ id?: string } | null>(
-        secret,
-        entity,
-        "created",
-        payload,
-      );
+      const res = await mutate<{ id?: string } | null>(secret, entity, "created", payload);
       id = res?.id ?? null;
     } catch {
       /* offline / function not deployed — still show where it landed */
@@ -211,21 +193,13 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
         {chipMode === "none" && chip}
 
         {chipMode === "cycle" && (
-          <button
-            type="button"
-            className="shrink-0"
-            onClick={() => setCycleIndex((i) => i + 1)}
-          >
+          <button type="button" className="shrink-0" onClick={() => setCycleIndex((i) => i + 1)}>
             {chip}
           </button>
         )}
 
         {chipMode === "remind" && (
-          <button
-            type="button"
-            className="shrink-0"
-            onClick={() => setRemind((r) => !r)}
-          >
+          <button type="button" className="shrink-0" onClick={() => setRemind((r) => !r)}>
             {chip}
           </button>
         )}

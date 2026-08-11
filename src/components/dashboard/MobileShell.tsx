@@ -74,30 +74,33 @@ export function MobileShell({ secret }: { secret: string }) {
           </>
         ) : null}
         <div className="flex flex-col gap-4">
-          {[...WIDGETS].sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)).filter((w) => ids.includes(w.id)).map((w) => (
-            <Widget key={w.id} label={w.label}>
-              {w.id === "budget" ? (
-                <BudgetView secret={secret} />
-              ) : w.id === "today" ? (
-                <>
-                  <DueNowToday secret={secret} />
-                  <CalendarToday secret={secret} showLabel={false} />
-                </>
-              ) : w.id === "to-do" ? (
-                <TodoList secret={secret} />
-              ) : w.id === "to-buy" ? (
-                <BuyList secret={secret} />
-              ) : w.id === "routine" ? (
-                <RoutineList secret={secret} />
-              ) : w.id === "waiting-on" ? (
-                <WaitingOn secret={secret} />
-              ) : w.id === "scratchpad" ? (
-                <Scratchpad secret={secret} />
-              ) : (
-                <EmptyLine>{w.empty}</EmptyLine>
-              )}
-            </Widget>
-          ))}
+          {[...WIDGETS]
+            .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id))
+            .filter((w) => ids.includes(w.id))
+            .map((w) => (
+              <Widget key={w.id} label={w.label}>
+                {w.id === "budget" ? (
+                  <BudgetView secret={secret} />
+                ) : w.id === "today" ? (
+                  <>
+                    <DueNowToday secret={secret} />
+                    <CalendarToday secret={secret} showLabel={false} />
+                  </>
+                ) : w.id === "to-do" ? (
+                  <TodoList secret={secret} />
+                ) : w.id === "to-buy" ? (
+                  <BuyList secret={secret} />
+                ) : w.id === "routine" ? (
+                  <RoutineList secret={secret} />
+                ) : w.id === "waiting-on" ? (
+                  <WaitingOn secret={secret} />
+                ) : w.id === "scratchpad" ? (
+                  <Scratchpad secret={secret} />
+                ) : (
+                  <EmptyLine>{w.empty}</EmptyLine>
+                )}
+              </Widget>
+            ))}
         </div>
         {tab === "notes" ? (
           <div className="pt-4">
@@ -116,11 +119,7 @@ export function MobileShell({ secret }: { secret: string }) {
       </main>
       <div className="shrink-0">
         <CaptureBar secret={secret} />
-        <TabBar
-          active={tab}
-          onChange={setTab}
-          badges={{ do: hub.count > 0, budget: false }}
-        />
+        <TabBar active={tab} onChange={setTab} badges={{ do: hub.count > 0, budget: false }} />
       </div>
       <CommandOverlay
         secret={secret}

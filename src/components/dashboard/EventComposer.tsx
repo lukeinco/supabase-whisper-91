@@ -1,10 +1,5 @@
 import { useState } from "react";
-import {
-  EMPTY_DRAFT,
-  downloadICS,
-  googleCalendarUrl,
-  type EventDraft,
-} from "@/lib/calendar";
+import { EMPTY_DRAFT, downloadICS, googleCalendarUrl, type EventDraft } from "@/lib/calendar";
 
 const FIELDS: { key: keyof EventDraft; label: string; placeholder: string }[] = [
   { key: "title", label: "title", placeholder: "" },

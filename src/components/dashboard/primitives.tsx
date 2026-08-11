@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
 
 export function EmptyLine({ children }: { children: ReactNode }) {
-  return (
-    <p className="px-4 py-3 font-mono text-[12px] text-muted">{children}</p>
-  );
+  return <p className="px-4 py-3 font-mono text-[12px] text-muted">{children}</p>;
 }
 
 /** Empty state that carries the action — a plain text link, never a button. */

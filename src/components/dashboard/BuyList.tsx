@@ -184,9 +184,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
       action: {
         label: "undo",
         onClick: () => {
-          setCategories((prev) =>
-            [...prev, c].sort((a, b) => a.sort_order - b.sort_order),
-          );
+          setCategories((prev) => [...prev, c].sort((a, b) => a.sort_order - b.sort_order));
           sendCat("edited", { id: c.id, deleted_at: null });
         },
       },
@@ -231,9 +229,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
         {addingCat ? (
           addLink
         ) : (
-          <EmptyAction onClick={() => setAddingCat(true)}>
-            no categories — add one
-          </EmptyAction>
+          <EmptyAction onClick={() => setAddingCat(true)}>no categories — add one</EmptyAction>
         )}
       </div>
     );
@@ -354,7 +350,10 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                             onChange={(e) =>
                               setPending((prev) => ({
                                 ...prev,
-                                [b.id]: { ...prev[b.id]!, budgetCategoryId: e.target.value || null },
+                                [b.id]: {
+                                  ...prev[b.id]!,
+                                  budgetCategoryId: e.target.value || null,
+                                },
                               }))
                             }
                             className="min-w-0 flex-1 truncate bg-transparent font-mono text-[11px] text-muted outline-none"

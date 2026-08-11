@@ -310,7 +310,6 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     />
   );
 
-
   if (todos === null) {
     return <p className="px-4 py-3 font-mono text-[12px] text-muted">loading…</p>;
   }
@@ -370,7 +369,6 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
               ) : (
                 items.map((t) => row(t, false))
               )}
-
             </div>
           </div>
         ))}
@@ -388,9 +386,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
           className="w-full bg-transparent px-4 pt-3 font-mono text-[11px] text-foreground placeholder:text-muted outline-none"
         />
       ) : folders.length <= 1 ? (
-        <EmptyAction onClick={() => setAddingFolder(true)}>
-          no folders — add one
-        </EmptyAction>
+        <EmptyAction onClick={() => setAddingFolder(true)}>no folders — add one</EmptyAction>
       ) : (
         <span
           role="link"
@@ -497,8 +493,7 @@ function TodoRow({
             type="button"
             className="shrink-0 rounded-[4px] border border-muted/30 px-[5px] py-px font-mono text-[10px] text-muted"
           >
-            {folders.find((f) => f.id === (t.folder_id ?? UNFILED.id))?.name ??
-              "file"}
+            {folders.find((f) => f.id === (t.folder_id ?? UNFILED.id))?.name ?? "file"}
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-auto min-w-[120px] p-1">

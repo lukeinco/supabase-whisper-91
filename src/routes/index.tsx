@@ -12,7 +12,6 @@ import { CommandOverlay, type OverlayMode } from "@/components/dashboard/Command
 import { useShortcuts } from "@/components/dashboard/useShortcuts";
 import { getState, UnauthorizedError } from "@/lib/api";
 
-
 export const Route = createFileRoute("/")({
   ssr: false,
   head: () => ({
@@ -64,19 +63,12 @@ function Index() {
   if (!ready) return <div className="min-h-[100dvh] bg-background" />;
   if (!secret || denied) return <NoKey />;
 
-
   if (isMobile) return <MobileShell secret={secret} />;
 
   return <DesktopShell secret={secret} onUnauthorized={onUnauthorized} />;
 }
 
-function DesktopShell({
-  secret,
-  onUnauthorized,
-}: {
-  secret: string;
-  onUnauthorized: () => void;
-}) {
+function DesktopShell({ secret, onUnauthorized }: { secret: string; onUnauthorized: () => void }) {
   const [overlay, setOverlay] = useState<OverlayMode>(null);
 
   useShortcuts({

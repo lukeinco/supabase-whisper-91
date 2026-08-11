@@ -65,10 +65,7 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
     setAdding(false);
     if (!clean) return;
     const id = `tmp-${Date.now()}`;
-    setRoutines((prev) => [
-      ...(prev ?? []),
-      { id, title: clean, position: (prev?.length ?? 0) },
-    ]);
+    setRoutines((prev) => [...(prev ?? []), { id, title: clean, position: prev?.length ?? 0 }]);
     send("created", { title: clean });
   }
 
@@ -113,7 +110,9 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
       )}
 
       {adding ? (
-        <div className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}>
+        <div
+          className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+        >
           <Square size={19} strokeWidth={1.5} className="shrink-0 text-muted" />
           <input
             autoFocus

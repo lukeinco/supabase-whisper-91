@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import { getCalendar, UnauthorizedError } from "@/lib/api";
-import {
-  normalizeEvents,
-  eventTimeLabel,
-  type CalendarEvent,
-} from "@/lib/calendar";
+import { normalizeEvents, eventTimeLabel, type CalendarEvent } from "@/lib/calendar";
 import { useDenverToday } from "@/lib/denver";
 
 export function CalendarToday({

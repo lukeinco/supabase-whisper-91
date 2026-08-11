@@ -138,7 +138,9 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
       )}
 
       {adding ? (
-        <div className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}>
+        <div
+          className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+        >
           <input
             autoFocus
             value={what}
