@@ -14,6 +14,7 @@ export type ReminderHub = {
   next: Reminder | null;
   reminders: Reminder[];
   clearReminder: (id: string) => void;
+  addReminder: (title: string, fireAt: string) => void;
   cards: ReviewCard[];
   count: number;
   dismissed: ReviewCard[];
@@ -129,6 +130,7 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
     next: nextReminder(reminders, now),
     reminders: reminders.filter((r) => !resolved.has(r.id)),
     clearReminder,
+    addReminder,
     cards: stack,
     count: stack.length,
     dismissed,
