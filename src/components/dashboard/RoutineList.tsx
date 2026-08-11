@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Square, SquareCheck, X } from "lucide-react";
-import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { resultId, mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { EmptyAction } from "./primitives";
 import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
@@ -109,8 +109,9 @@ export function RoutineList({ secret, dense = false, dueTodayOnly = false, onUna
 
   const send = useCallback(
     (action: string, payload: Record<string, unknown>) => {
-      mutate(secret, "routine", action, payload).catch((e: unknown) => {
+      return mutate(secret, "routine", action, payload).catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
+        throw e;
       });
     },
     [secret, onUnauthorized],
@@ -136,7 +137,16 @@ export function RoutineList({ secret, dense = false, dueTodayOnly = false, onUna
       ...(prev ?? []),
       { id, position: prev?.length ?? 0, due_today: true, ...fields },
     ]);
-    send("created", fields);
+    void send("created", fields)
+      .then((res) => {
+        const real = resultId(res);
+        setRoutines((prev) =>
+          real
+            ? (prev ?? []).map((x) => (x.id === id ? { ...x, id: real } : x))
+            : (prev ?? []).filter((x) => x.id !== id),
+        );
+      })
+      .catch(() => setRoutines((prev) => (prev ?? []).filter((x) => x.id !== id)));
   }
 
   function saveEdit(r: Routine, d: Draft) {

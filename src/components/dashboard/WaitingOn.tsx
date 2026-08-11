@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Square } from "lucide-react";
-import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { resultId, mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
@@ -49,8 +49,9 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
 
   const send = useCallback(
     (action: string, payload: Record<string, unknown>) => {
-      mutate(secret, "waiting_on", action, payload).catch((e: unknown) => {
+      return mutate(secret, "waiting_on", action, payload).catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
+        throw e;
       });
     },
     [secret, onUnauthorized],
@@ -98,11 +99,18 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
     setWhat("");
     setWho("");
     if (!title) return;
-    setItems((prev) => [
-      ...(prev ?? []),
-      { id: `tmp-${Date.now()}`, title, person, since_ymd: today },
-    ]);
-    send("created", { title, person });
+    const tmpId = `tmp-${Date.now()}`;
+    setItems((prev) => [...(prev ?? []), { id: tmpId, title, person, since_ymd: today }]);
+    void send("created", { title, person })
+      .then((res) => {
+        const real = resultId(res);
+        setItems((prev) =>
+          real
+            ? (prev ?? []).map((x) => (x.id === tmpId ? { ...x, id: real } : x))
+            : (prev ?? []).filter((x) => x.id !== tmpId),
+        );
+      })
+      .catch(() => setItems((prev) => (prev ?? []).filter((x) => x.id !== tmpId)));
   }
 
   const rowH = dense ? "h-[34px]" : "h-[46px]";

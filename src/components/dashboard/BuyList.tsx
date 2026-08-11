@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { resultId, mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction, focusCapture } from "./primitives";
@@ -62,8 +62,9 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
 
   const send = useCallback(
     (action: string, payload: Record<string, unknown>) => {
-      mutate(secret, "buy_item", action, payload).catch((e: unknown) => {
+      return mutate(secret, "buy_item", action, payload).catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
+        throw e;
       });
     },
     [secret, onUnauthorized],
@@ -71,8 +72,9 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
 
   const sendCat = useCallback(
     (action: string, payload: Record<string, unknown>) => {
-      mutate(secret, "buy_category", action, payload).catch((e: unknown) => {
+      return mutate(secret, "buy_category", action, payload).catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
+        throw e;
       });
     },
     [secret, onUnauthorized],
@@ -201,7 +203,16 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
       ...prev,
       { id, name: clean, sort_order, default_budget_category_id: null },
     ]);
-    sendCat("created", { name: clean, sort_order });
+    void sendCat("created", { name: clean, sort_order })
+      .then((res) => {
+        const real = resultId(res);
+        setCategories((prev) =>
+          real
+            ? prev.map((x) => (x.id === id ? { ...x, id: real } : x))
+            : prev.filter((x) => x.id !== id),
+        );
+      })
+      .catch(() => setCategories((prev) => prev.filter((x) => x.id !== id)));
   }
 
   function renameCategory(c: BuyCategory, name: string) {
@@ -214,16 +225,26 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
 
   /** Deliberate path: create straight into a category. */
   function addTo(categoryId: string, title: string) {
+    const tmpId = `tmp-${Date.now()}`;
     setItems((prev) => [
       ...(prev ?? []),
       {
-        id: `tmp-${Date.now()}`,
+        id: tmpId,
         title,
         category_id: categoryId,
         position: prev?.length ?? 0,
       } as BuyItem,
     ]);
-    send("created", { title, category_id: categoryId });
+    void send("created", { title, category_id: categoryId })
+      .then((res) => {
+        const real = resultId(res);
+        setItems((prev) =>
+          real
+            ? (prev ?? []).map((x) => (x.id === tmpId ? { ...x, id: real } : x))
+            : (prev ?? []).filter((x) => x.id !== tmpId),
+        );
+      })
+      .catch(() => setItems((prev) => (prev ?? []).filter((x) => x.id !== tmpId)));
   }
 
   function removeCategory(c: BuyCategory) {

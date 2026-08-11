@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { mutate, UnauthorizedError } from "@/lib/api";
+import { resultId, mutate, UnauthorizedError } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
@@ -63,8 +63,9 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
 
   const send = useCallback(
     (action: string, payload: Record<string, unknown>) => {
-      mutate(secret, "todo", action, payload).catch((e: unknown) => {
+      return mutate(secret, "todo", action, payload).catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
+        throw e;
       });
     },
     [secret, onUnauthorized],
@@ -72,8 +73,9 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
 
   const sendFolder = useCallback(
     (action: string, payload: Record<string, unknown>) => {
-      mutate(secret, "folder", action, payload).catch((e: unknown) => {
+      return mutate(secret, "folder", action, payload).catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
+        throw e;
       });
     },
     [secret, onUnauthorized],
@@ -225,6 +227,16 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     send("edited", { id: t.id, folder_id: folderId });
   }
 
+  /** Swap an optimistic to-do for the row the server actually created. */
+  function reconcileTodo(tmpId: string, res: unknown) {
+    const real = resultId(res);
+    setTodos((prev) =>
+      real
+        ? (prev ?? []).map((x) => (x.id === tmpId ? { ...x, id: real } : x))
+        : (prev ?? []).filter((x) => x.id !== tmpId),
+    );
+  }
+
   function addFolder(name: string) {
     const clean = name.trim();
     setAddingFolder(false);
@@ -236,7 +248,16 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       { id, name: clean, sort_order },
       UNFILED,
     ]);
-    sendFolder("created", { name: clean, sort_order });
+    void sendFolder("created", { name: clean, sort_order })
+      .then((res) => {
+        const real = resultId(res);
+        setFolders((prev) =>
+          real
+            ? prev.map((x) => (x.id === id ? { ...x, id: real } : x))
+            : prev.filter((x) => x.id !== id),
+        );
+      })
+      .catch(() => setFolders((prev) => prev.filter((x) => x.id !== id)));
   }
 
   function renameFolder(f: Folder, name: string) {
@@ -297,10 +318,11 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     const clean = title.trim();
     setAddingTodo(false);
     if (!clean) return;
+    const tmpId = `tmp-${Date.now()}`;
     setTodos((prev) => [
       ...(prev ?? []),
       {
-        id: `tmp-${Date.now()}`,
+        id: tmpId,
         title: clean,
         folder_id: null,
         due_ymd: null,
@@ -310,16 +332,19 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
         deferral_history: [],
       },
     ]);
-    send("created", { title: clean, due_at: null });
+    void send("created", { title: clean, due_at: null })
+      .then((res) => reconcileTodo(tmpId, res))
+      .catch(() => setTodos((prev) => (prev ?? []).filter((x) => x.id !== tmpId)));
   }
 
   /** Deliberate path: create straight into a folder, optionally with a parsed due date. */
   function addTo(folderId: string, title: string, due: Date | null) {
     const ymd = due ? dateToYMD(due) : null;
+    const tmpId = `tmp-${Date.now()}`;
     setTodos((prev) => [
       ...(prev ?? []),
       {
-        id: `tmp-${Date.now()}`,
+        id: tmpId,
         title,
         folder_id: folderId,
         due_ymd: ymd,
@@ -329,7 +354,9 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
         deferral_history: [],
       },
     ]);
-    send("created", { title, folder_id: folderId, due_at: ymd ? ymdToISO(ymd) : null });
+    void send("created", { title, folder_id: folderId, due_at: ymd ? ymdToISO(ymd) : null })
+      .then((res) => reconcileTodo(tmpId, res))
+      .catch(() => setTodos((prev) => (prev ?? []).filter((x) => x.id !== tmpId)));
   }
 
   return (
