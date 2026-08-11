@@ -117,14 +117,24 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
           <input
             autoFocus
             placeholder="routine"
-            onBlur={(e) => add(e.currentTarget.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") add(e.currentTarget.value);
               if (e.key === "Escape") setAdding(false);
             }}
             className={`min-w-0 flex-1 bg-transparent font-sans ${textSize} text-foreground placeholder:text-muted outline-none`}
           />
+          <button
+            type="button"
+            onClick={(e) => {
+              const input = e.currentTarget.parentElement?.querySelector("input");
+              if (input) add(input.value);
+            }}
+            className="shrink-0 font-mono text-[11px] text-muted"
+          >
+            save
+          </button>
         </div>
+
       ) : (
         <button
           type="button"
