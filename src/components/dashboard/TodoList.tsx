@@ -326,8 +326,14 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
         </div>
       ) : null}
 
+      {byFolder
+        .filter((g) => g.folder.id === UNFILED.id && g.items.length > 0)
+        .flatMap(({ items }) => items.map((t) => row(t, false)))}
+
       <div className="flex flex-col gap-3 px-4">
-        {byFolder.map(({ folder, items }) => (
+        {byFolder
+          .filter((g) => g.folder.id !== UNFILED.id)
+          .map(({ folder, items }) => (
           <div key={folder.id} className="rounded-[6px] border border-muted/25">
             <div className="flex items-center gap-2 px-3 pt-2">
               {editingFolder === folder.id ? (
