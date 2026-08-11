@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Square } from "lucide-react";
-import { getState, mutate, UnauthorizedError } from "@/lib/api";
+import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { useDashboardSync } from "@/lib/use-dashboard-sync";
+import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
 import { useDenverToday } from "@/lib/denver";
 import { daysElapsed, normalizeWaiting, type WaitingItem } from "@/lib/modules";
@@ -19,22 +21,13 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
   const [what, setWhat] = useState("");
   const [who, setWho] = useState("");
 
-  useEffect(() => {
-    let active = true;
-    getState(secret)
-      .then((state) => {
-        if (!active) return;
-        setItems(normalizeWaiting(state));
-      })
-      .catch((e: unknown) => {
-        if (!active) return;
-        if (e instanceof UnauthorizedError) onUnauthorized?.();
-        setItems([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [secret, onUnauthorized]);
+  const done = useVisitCompleted<WaitingItem>();
+
+  useDashboardSync(
+    secret,
+    useCallback((state: DashboardState) => setItems(normalizeWaiting(state)), []),
+    onUnauthorized,
+  );
 
   const send = useCallback(
     (action: string, payload: Record<string, unknown>) => {
@@ -46,14 +39,19 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
   );
 
   function resolve(w: WaitingItem) {
-    setItems((prev) => (prev ?? []).filter((x) => x.id !== w.id));
+    if (done.has(w.id)) {
+      done.unmark(w.id);
+      send("edited", { id: w.id, completed_at: null });
+      return;
+    }
+    done.mark(w, (items ?? []).findIndex((x) => x.id === w.id));
     send("completed", { id: w.id });
     toast("resolved", {
       duration: 5000,
       action: {
         label: "undo",
         onClick: () => {
-          setItems((prev) => [...(prev ?? []), w]);
+          done.unmark(w.id);
           send("edited", { id: w.id, completed_at: null });
         },
       },
@@ -92,16 +90,18 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
   const rowH = dense ? "h-[34px]" : "h-[46px]";
   const textSize = dense ? "text-[14px]" : "text-[15px]";
 
+  const visible = done.merge(items ?? []);
+
   if (items === null) {
     return <p className="px-4 py-3 font-mono text-[12px] text-muted">loading…</p>;
   }
 
   return (
     <div className="w-full min-w-0 pb-2">
-      {items.length === 0 && !adding ? (
+      {visible.length === 0 && !adding ? (
         <EmptyAction onClick={() => setAdding(true)}>nothing pending — add one</EmptyAction>
       ) : (
-        items.map((w) => (
+        visible.map((w) => (
           <div
             key={w.id}
             className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
@@ -114,7 +114,11 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
             >
               <Square size={19} strokeWidth={1.5} />
             </button>
-            <span className={`min-w-0 flex-1 truncate font-sans ${textSize} text-foreground`}>
+            <span
+              className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
+                done.has(w.id) ? "text-muted line-through" : "text-foreground"
+              }`}
+            >
               {w.title}
             </span>
             {w.person ? (
