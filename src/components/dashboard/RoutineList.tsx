@@ -322,7 +322,7 @@ function RoutineEditor({
   const [d, setD] = useState<Draft>(initial);
   useEffect(() => setD(initial), [initial.title, initial.start_date]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const weekday = WEEKDAYS[weekdayOf(d.start_date)];
+  const weekday = WEEKDAYS[weekdayOf(d.start_date)] ?? "monday";
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((p) => ({ ...p, [k]: v }));
   const showInterval = d.repeat === "n_days" || d.repeat === "n_weeks";
 
