@@ -51,26 +51,32 @@ export function BudgetView({
   const month = monthInfo(today);
 
   const [cats, setCats] = useState<BudgetCat[] | null>(null);
-  const [spend, setSpend] = useState<Record<string, number>>({});
+  const [lines, setLines] = useState<BudgetLine[]>([]);
   const [cards, setCards] = useState<QueueCard[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", amount: "", spread: true });
   const [adding, setAdding] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [entry, setEntry] = useState<{ amount: string; label: string }>({ amount: "", label: "" });
+  const amountRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(() => {
     getState(secret)
       .then((state) => {
         setCats(normalizeBudgetCats(state));
-        setSpend(spendByCategory(normalizeBudgetLines(state), month.prefix));
+        setLines(normalizeBudgetLines(state));
         setCards(normalizeQueueCards(state, "budget"));
       })
       .catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
         setCats([]);
       });
-  }, [secret, month.prefix, onUnauthorized]);
+  }, [secret, onUnauthorized]);
 
   useEffect(load, [load]);
+
+  const spend = spendByCategory(lines, month.prefix);
+
 
   if (cats === null) return <LoadingLine />;
 
