@@ -15,6 +15,8 @@ import { getLayout, saveLayout, UnauthorizedError, type WidgetLayout } from "@/l
 import { NextReminder } from "./NextReminder";
 import { ReviewQueue } from "./ReviewQueue";
 import { useReminderHub } from "./useReminderHub";
+import { ReminderList } from "./ReminderList";
+import { LifeField } from "./LifeField";
 
 export function DesktopGrid({
   secret,
@@ -52,7 +54,10 @@ export function DesktopGrid({
     getLayout(secret)
       .then(({ layout: saved }) => {
         if (!active) return;
-        setLayout(saved && saved.length ? saved : DEFAULT_LAYOUT);
+        // Merge in defaults for widgets added after this layout was saved.
+        const base = saved && saved.length ? saved : DEFAULT_LAYOUT;
+        const missing = DEFAULT_LAYOUT.filter((d) => !base.some((l) => l.i === d.i));
+        setLayout([...base, ...missing]);
         setLoading(false);
       })
       .catch((e: unknown) => {
@@ -115,6 +120,10 @@ export function DesktopGrid({
               <RoutineList secret={secret} dense onUnauthorized={onUnauthorized} />
             ) : w.id === "waiting-on" ? (
               <WaitingOn secret={secret} dense onUnauthorized={onUnauthorized} />
+            ) : w.id === "reminders" ? (
+              <ReminderList hub={hub} dense />
+            ) : w.id === "life" ? (
+              <LifeField />
             ) : w.id === "scratchpad" ? (
               <Scratchpad secret={secret} onUnauthorized={onUnauthorized} />
             ) : (

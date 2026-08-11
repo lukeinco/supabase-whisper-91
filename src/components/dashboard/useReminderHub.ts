@@ -14,6 +14,7 @@ export type ReminderHub = {
   next: Reminder | null;
   reminders: Reminder[];
   clearReminder: (id: string) => void;
+  deleteReminder: (id: string) => void;
   addReminder: (title: string, fireAt: string) => void;
   cards: ReviewCard[];
   count: number;
@@ -126,6 +127,28 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
     [send],
   );
 
+  const deleteReminder = useCallback(
+    (id: string) => {
+      send("reminder", "deleted", id);
+      setResolved((prev) => new Set(prev).add(id));
+      toast("deleted", {
+        duration: 5000,
+        action: {
+          label: "undo",
+          onClick: () => {
+            mutate(secret, "reminder", "edited", { id, deleted_at: null }).catch(() => {});
+            setResolved((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+          },
+        },
+      });
+    },
+    [send, secret],
+  );
+
   const addReminder = useCallback(
     (title: string, fireAt: string) => {
       const clean = title.trim();
@@ -154,6 +177,7 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
     next: nextReminder(reminders, now),
     reminders: reminders.filter((r) => !resolved.has(r.id)),
     clearReminder,
+    deleteReminder,
     addReminder,
     cards: stack,
     count: stack.length,
