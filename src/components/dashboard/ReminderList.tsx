@@ -95,6 +95,18 @@ export function ReminderList({ hub, dense = false }: { hub: ReminderHub; dense?:
           </button>
         </div>
       ))}
+      {adding ? (
+        addRow
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="px-4 py-2 font-mono text-[11px] text-muted"
+        >
+          + reminder
+        </button>
+      )}
     </div>
+
   );
 }
