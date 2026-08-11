@@ -243,40 +243,122 @@ export function BudgetView({
                 </li>
               );
             }
+            const isOpen = expanded === c.id;
+            const catLines = isOpen ? linesForCategory(lines, month.prefix, c.id) : [];
             return (
-              <li
-                key={c.id}
-                className={`w-full border-t border-border px-4 ${dense ? "py-2" : "py-3"}`}
-              >
-                <button
-                  type="button"
-                  onClick={() => startEdit(c)}
-                  className="flex w-full items-baseline justify-between gap-3 text-left"
+              <li key={c.id} className="w-full border-t border-border">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleExpand(c.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleExpand(c.id);
+                    }
+                  }}
+                  className={`w-full cursor-pointer px-4 ${dense ? "py-2" : "py-3"}`}
                 >
-                  <span
-                    className={`min-w-0 flex-1 truncate font-sans text-[15px] ${
-                      over ? "text-accent" : "text-foreground"
-                    }`}
-                  >
-                    {c.name}
-                  </span>
-                  <span
-                    className={`shrink-0 font-mono text-[12px] ${
-                      over ? "text-accent" : "text-muted"
-                    }`}
-                  >
-                    {money(sp)} of {money(c.monthly_budget)} · {money(remaining)}
-                  </span>
-                </button>
-                <div className="pt-2">
-                  <Bar ratio={ratio} over={over} tick={c.spread ? month.elapsedRatio : null} />
+                  <div className="flex w-full items-baseline justify-between gap-3 text-left">
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEdit(c);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          startEdit(c);
+                        }
+                      }}
+                      className={`min-w-0 flex-1 truncate font-sans text-[15px] ${
+                        over ? "text-accent" : "text-foreground"
+                      }`}
+                    >
+                      {c.name}
+                    </span>
+                    <span
+                      className={`shrink-0 font-mono text-[12px] ${
+                        over ? "text-accent" : "text-muted"
+                      }`}
+                    >
+                      {money(sp)} of {money(c.monthly_budget)} · {money(remaining)}
+                    </span>
+                  </div>
+                  <div className="pt-2">
+                    <Bar ratio={ratio} over={over} tick={c.spread ? month.elapsedRatio : null} />
+                  </div>
+                  <p className="pt-1 font-mono text-[11px] text-muted">
+                    {pct(ratio)} spent
+                    {c.spread ? ` · ${pct(month.elapsedRatio)} elapsed` : ""}
+                  </p>
                 </div>
-                <p className="pt-1 font-mono text-[11px] text-muted">
-                  {pct(ratio)} spent
-                  {c.spread ? ` · ${pct(month.elapsedRatio)} elapsed` : ""}
-                </p>
+
+                {isOpen ? (
+                  <div className="w-full">
+                    {catLines.length === 0 ? (
+                      <p className="px-4 pb-1 font-mono text-[11px] text-muted">
+                        no spending this month
+                      </p>
+                    ) : (
+                      <ul className="w-full">
+                        {catLines.map((l, i) => (
+                          <li
+                            key={l.id ?? `${i}-${l.label}`}
+                            className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4"
+                          >
+                            <span className="shrink-0 font-mono text-[11px] text-muted">
+                              {shortDate(l.ymd)}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
+                              {l.label}
+                            </span>
+                            <span className="shrink-0 font-mono text-[12px] text-foreground">
+                              {money(l.amount)}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label="delete"
+                              onClick={() => removeLine(l)}
+                              className="shrink-0 font-mono text-[12px] text-muted opacity-40 transition-opacity hover:opacity-100"
+                            >
+                              ×
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex h-[34px] w-full items-center gap-3 border-t border-border px-4">
+                      <span className="font-mono text-[11px] text-muted">$</span>
+                      <input
+                        ref={amountRef}
+                        value={entry.amount}
+                        onChange={(e) => setEntry((p) => ({ ...p, amount: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addLine(c.id);
+                        }}
+                        inputMode="decimal"
+                        placeholder="0"
+                        className="w-14 shrink-0 border-0 bg-transparent font-mono text-[12px] text-foreground placeholder:text-muted focus:outline-none"
+                      />
+                      <input
+                        value={entry.label}
+                        onChange={(e) => setEntry((p) => ({ ...p, label: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") addLine(c.id);
+                        }}
+                        placeholder="what"
+                        className="min-w-0 flex-1 border-0 bg-transparent font-sans text-[14px] text-foreground placeholder:text-muted focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </li>
             );
+
           })}
         </ul>
       )}
