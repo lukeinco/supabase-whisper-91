@@ -32,6 +32,8 @@ const TAB_WIDGETS: Record<TabId, string[]> = {
 
 const TAB_ORDER: TabId[] = ["today", "do", "buy", "budget", "notes"];
 
+const PULL_THRESHOLD = 70;
+
 export function MobileShell({ secret }: { secret: string }) {
   const [tab, setTab] = useState<TabId>("today");
   const [queueOpen, setQueueOpen] = useState(false);
@@ -41,6 +43,11 @@ export function MobileShell({ secret }: { secret: string }) {
   const panStart = useRef<{ x: number; y: number } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [overlay, setOverlay] = useState<OverlayMode>(null);
+  const version = useStateVersion();
+  const [pull, setPull] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const pulling = useRef(false);
+
 
   useShortcuts({
     onSearch: useCallback(() => setOverlay("search"), []),
