@@ -353,7 +353,15 @@ export function BudgetView({
                         placeholder="what"
                         className="min-w-0 flex-1 border-0 bg-transparent font-sans text-[14px] text-foreground placeholder:text-muted focus:outline-none"
                       />
+                      <button
+                        type="button"
+                        onClick={() => addLine(c.id)}
+                        className="shrink-0 font-mono text-[11px] text-muted"
+                      >
+                        save
+                      </button>
                     </div>
+
                   </div>
                 ) : null}
               </li>

@@ -381,17 +381,29 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       </div>
 
       {addingFolder ? (
-        <input
-          autoFocus
-          placeholder="folder"
-          onBlur={(e) => addFolder(e.currentTarget.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") addFolder(e.currentTarget.value);
-            if (e.key === "Escape") setAddingFolder(false);
-          }}
-          className="w-full bg-transparent px-4 pt-3 font-mono text-[11px] text-foreground placeholder:text-muted outline-none"
-        />
+        <div className="flex w-full items-center gap-2 px-4 pt-3">
+          <input
+            autoFocus
+            placeholder="folder"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addFolder(e.currentTarget.value);
+              if (e.key === "Escape") setAddingFolder(false);
+            }}
+            className="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-foreground placeholder:text-muted outline-none"
+          />
+          <button
+            type="button"
+            onClick={(e) => {
+              const input = e.currentTarget.parentElement?.querySelector("input");
+              if (input) addFolder(input.value);
+            }}
+            className="shrink-0 font-mono text-[11px] text-muted"
+          >
+            save
+          </button>
+        </div>
       ) : folders.length <= 1 ? (
+
         <EmptyAction onClick={() => setAddingFolder(true)}>no folders — add one</EmptyAction>
       ) : (
         <span
