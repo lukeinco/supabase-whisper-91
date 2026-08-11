@@ -10,6 +10,8 @@ export type BuyItem = {
   title: string;
   category_id: string | null;
   position: number;
+  /** Optional expected price, shown on the row and prefilled when checked off. */
+  price: number | null;
 };
 
 export type BudgetCategory = {
@@ -18,6 +20,15 @@ export type BudgetCategory = {
 };
 
 type Raw = Record<string, unknown>;
+
+function num(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
 
 function str(v: unknown): string | null {
   return typeof v === "string" && v.length > 0 ? v : null;
@@ -59,6 +70,7 @@ export function normalizeBuyItems(state: unknown): BuyItem[] {
         title: str(r["title"]) ?? str(r["text"]) ?? "",
         category_id: str(r["category_id"]) ?? str(r["buy_category_id"]),
         position: typeof r["position"] === "number" ? (r["position"] as number) : i,
+        price: num(r["estimated_amount"] ?? r["price"] ?? r["amount"]),
       } satisfies BuyItem;
     })
     .filter((b): b is BuyItem => b !== null)
