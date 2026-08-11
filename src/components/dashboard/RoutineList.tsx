@@ -370,21 +370,8 @@ function RoutineEditor({
 
       <div className="flex items-center gap-2">
         <span className="w-[64px] shrink-0 font-mono text-[11px] text-muted">repeat</span>
-        <select
-          value={d.repeat}
-          onChange={(e) => set("repeat", e.target.value as RepeatOption)}
-          className={`${editFieldClass} min-w-0 flex-1 font-mono text-[12px] text-foreground [color-scheme:dark] [&>option]:bg-card [&>option]:text-foreground`}
-        >
-          <option value="daily">every day</option>
-          <option value="n_days">every N days</option>
-          <option value="weekly">every {weekday}</option>
-          <option value="n_weeks">every N weeks on {weekday}</option>
-          <option value="nth1">first {weekday} of the month</option>
-          <option value="nth2">second {weekday} of the month</option>
-          <option value="nth3">third {weekday} of the month</option>
-          <option value="nth4">fourth {weekday} of the month</option>
-          <option value="nth_last">last {weekday} of the month</option>
-        </select>
+        <RepeatSelect value={d.repeat} weekday={weekday} onChange={(v) => set("repeat", v)} />
+
         {showInterval ? (
           <input
             type="number"
