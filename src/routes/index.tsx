@@ -10,7 +10,8 @@ import { WeatherLine } from "@/components/dashboard/WeatherLine";
 import { AskClaude } from "@/components/dashboard/AskClaude";
 import { CommandOverlay, type OverlayMode } from "@/components/dashboard/CommandOverlay";
 import { useShortcuts } from "@/components/dashboard/useShortcuts";
-import { getState, UnauthorizedError } from "@/lib/api";
+import { getState, isUnauthorized, refreshState, UnauthorizedError } from "@/lib/api";
+import { useStateVersion } from "@/lib/state-cache";
 
 export const Route = createFileRoute("/")({
   ssr: false,
