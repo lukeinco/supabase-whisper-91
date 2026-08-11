@@ -77,29 +77,24 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
           const done = ticks[r.id] === today;
           const Icon = done ? SquareCheck : Square;
           return (
-            <div
+            <RoutineRow
               key={r.id}
-              className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
-            >
-              <button
-                type="button"
-                aria-label={done ? "untick" : "tick"}
-                onClick={() => toggle(r)}
-                className="shrink-0 text-muted"
-              >
-                <Icon size={19} strokeWidth={1.5} />
-              </button>
-              <span
-                className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
-                  done ? "text-muted line-through" : "text-foreground"
-                }`}
-              >
-                {r.title}
-              </span>
-            </div>
+              r={r}
+              done={done}
+              Icon={Icon}
+              rowH={rowH}
+              textSize={textSize}
+              editing={edit.editing === r.id}
+              editRef={edit.editing === r.id ? edit.editRef : undefined}
+              onEnterEdit={() => edit.begin(r.id)}
+              onCancelEdit={edit.end}
+              onSave={(v) => rename(r, v)}
+              onToggle={() => toggle(r)}
+            />
           );
         })
       )}
+
 
       {adding ? (
         <div
