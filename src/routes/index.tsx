@@ -11,8 +11,19 @@ import { AskClaude } from "@/components/dashboard/AskClaude";
 import { CommandOverlay, type OverlayMode } from "@/components/dashboard/CommandOverlay";
 import { useShortcuts } from "@/components/dashboard/useShortcuts";
 import { getState, isUnauthorized, refreshState, UnauthorizedError } from "@/lib/api";
-import { useStateVersion } from "@/lib/state-cache";
+import { useOffline, useStateVersion } from "@/lib/state-cache";
 import { usePwa } from "@/lib/pwa";
+import { useDenverToday } from "@/lib/denver";
+import { AppErrorBoundary } from "@/components/dashboard/AppErrorBoundary";
+
+/** One mono line, only when the network failed and cached data is on screen. */
+function OfflineLine() {
+  const offline = useOffline();
+  if (!offline) return null;
+  return (
+    <p className="px-4 pt-1 font-mono text-[11px] text-muted">offline — showing last known</p>
+  );
+}
 
 export const Route = createFileRoute("/")({
   ssr: false,
