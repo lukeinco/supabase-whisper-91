@@ -18,7 +18,7 @@ export function EmptyAction({
     <span
       role="link"
       tabIndex={0}
-      onClick={onClick}
+      onClick={() => onClick()}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
@@ -29,9 +29,11 @@ export function EmptyAction({
   );
 }
 
-/** Focus the capture bar, wherever it is rendered. */
-export function focusCapture() {
+/** Focus the capture bar, wherever it is rendered, optionally prefilling it. */
+export function focusCapture(prefill?: string) {
+  window.dispatchEvent(new CustomEvent("capture:focus", { detail: { prefill } }));
   const el = document.querySelector<HTMLInputElement>("[data-capture-input]");
+  el?.scrollIntoView({ block: "nearest" });
   el?.focus();
 }
 

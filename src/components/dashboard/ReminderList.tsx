@@ -9,7 +9,11 @@ export function ReminderList({ hub, dense = false }: { hub: ReminderHub; dense?:
   const list = hub.reminders;
 
   if (list.length === 0) {
-    return <EmptyAction onClick={focusCapture}>no reminders — add one</EmptyAction>;
+    return (
+      <EmptyAction onClick={() => focusCapture("remind me ")}>
+        no reminders — add one
+      </EmptyAction>
+    );
   }
 
   return (
