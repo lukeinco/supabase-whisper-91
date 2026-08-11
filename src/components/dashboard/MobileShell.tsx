@@ -176,7 +176,7 @@ export function MobileShell({ secret }: { secret: string }) {
                 ) : w.id === "to-buy" ? (
                   <BuyList secret={secret} />
                 ) : w.id === "routine" ? (
-                  <RoutineList secret={secret} />
+                  <RoutineList secret={secret} dueTodayOnly={tab === "today"} />
                 ) : w.id === "waiting-on" ? (
                   <WaitingOn secret={secret} />
                 ) : w.id === "scratchpad" ? (
