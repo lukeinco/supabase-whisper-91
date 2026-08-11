@@ -92,15 +92,18 @@ export function CalendarToday({
           return (
             <li
               key={`${e.title}-${e.start ?? i}`}
-              className={`flex w-full items-center gap-3 border-t border-border pr-4 ${
+              className={`relative flex w-full items-center gap-3 border-t border-border px-4 ${
                 dense ? "h-[34px]" : "h-[44px]"
               }`}
-              style={{
-                // 2px bar + 8px gap on current rows; identical inset otherwise.
-                borderLeft: phase === "current" ? "2px solid var(--accent)" : "2px solid transparent",
-                paddingLeft: "8px",
-              }}
             >
+              {/* 2px bar sits 8px before the text column; rows never shift. */}
+              {phase === "current" ? (
+                <span
+                  aria-hidden
+                  className="absolute inset-y-0 left-[6px] w-[2px]"
+                  style={{ backgroundColor: "var(--accent)" }}
+                />
+              ) : null}
               <span
                 className="w-[54px] shrink-0 font-mono text-[11px]"
                 style={{
