@@ -5,11 +5,56 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
+  },
+  vite: {
+    plugins: [
+      VitePWA({
+        strategies: "generateSW",
+        registerType: "autoUpdate",
+        injectRegister: null,
+        filename: "sw.js",
+        outDir: "dist/client",
+        // The manifest is served dynamically from src/routes/manifest[.]webmanifest.ts
+        // so it can carry the access secret in start_url.
+        manifest: false,
+        devOptions: { enabled: false },
+        workbox: {
+          // App shell only — hashed build assets. Never API payloads.
+          globPatterns: ["**/*.{js,css,woff,woff2}"],
+          navigateFallback: null,
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true,
+          runtimeCaching: [
+            {
+              urlPattern: ({ request, sameOrigin }) =>
+                sameOrigin && request.mode === "navigate",
+              handler: "NetworkFirst",
+              options: { cacheName: "shell-html", networkTimeoutSeconds: 4 },
+            },
+            {
+              urlPattern: ({ request, sameOrigin }) =>
+                sameOrigin &&
+                (request.destination === "script" ||
+                  request.destination === "style" ||
+                  request.destination === "font" ||
+                  request.destination === "image"),
+              handler: "CacheFirst",
+              options: {
+                cacheName: "shell-assets",
+                expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              },
+            },
+          ],
+        },
+      }),
+    ],
   },
 });
