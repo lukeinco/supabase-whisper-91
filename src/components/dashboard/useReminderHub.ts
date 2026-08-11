@@ -13,7 +13,7 @@ import {
 export type ReminderHub = {
   next: Reminder | null;
   reminders: Reminder[];
-  clearReminder: (id: string) => void;
+  clearReminder: (id: string, intent?: "completed" | "dismissed") => void;
   deleteReminder: (id: string) => void;
   addReminder: (title: string, fireAt: string) => void;
   renameReminder: (id: string, title: string) => void;
@@ -61,8 +61,8 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
   }, [load]);
 
   const send = useCallback(
-    (entity: string, action: string, id: string) => {
-      mutate(secret, entity, action, { id }).catch((e: unknown) => {
+    (entity: string, action: string, id: string, extra?: Record<string, unknown>) => {
+      mutate(secret, entity, action, { id, ...extra }).catch((e: unknown) => {
         if (e instanceof UnauthorizedError) onUnauthorized?.();
       });
     },
@@ -77,11 +77,19 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
       if (alerted.current.has(r.id)) continue;
       alerted.current.add(r.id);
       toast(r.title || "reminder", {
-        duration: Infinity,
-        action: {
-          label: "clear",
+        // Ten seconds of foreground time; inaction returns it to the widget, uncleared.
+        duration: 10_000,
+        cancel: {
+          label: "×",
           onClick: () => {
-            send("reminder", "cleared", r.id);
+            send("reminder", "cleared", r.id, { intent: "dismissed" });
+            setResolved((prev) => new Set(prev).add(r.id));
+          },
+        },
+        action: {
+          label: "done",
+          onClick: () => {
+            send("reminder", "cleared", r.id, { intent: "completed" });
             setResolved((prev) => new Set(prev).add(r.id));
           },
         },
@@ -121,8 +129,8 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
   const stack = [...dueReminderCards(reminders, now), ...cards].filter((c) => !resolved.has(c.id));
 
   const clearReminder = useCallback(
-    (id: string) => {
-      send("reminder", "cleared", id);
+    (id: string, intent: "completed" | "dismissed" = "completed") => {
+      send("reminder", "cleared", id, { intent });
       setResolved((prev) => new Set(prev).add(id));
     },
     [send],

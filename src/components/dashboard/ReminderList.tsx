@@ -100,8 +100,8 @@ export function ReminderList({ hub, dense = false }: { hub: ReminderHub; dense?:
             edit.end();
             if (v.trim() && v.trim() !== r.title) hub.renameReminder(r.id, v);
           }}
-          onClear={() => hub.clearReminder(r.id)}
-          onDelete={() => hub.deleteReminder(r.id)}
+          onDismiss={() => hub.clearReminder(r.id, "dismissed")}
+          onComplete={() => hub.clearReminder(r.id, "completed")}
         />
       ))}
       {adding ? (
@@ -128,8 +128,8 @@ function ReminderRow({
   onEnterEdit,
   onCancelEdit,
   onSave,
-  onClear,
-  onDelete,
+  onDismiss,
+  onComplete,
 }: {
   r: { id: string; title: string; fire_at: string };
   rowH: string;
@@ -138,11 +138,10 @@ function ReminderRow({
   onEnterEdit: () => void;
   onCancelEdit: () => void;
   onSave: (value: string) => void;
-  onClear: () => void;
-  onDelete: () => void;
+  onDismiss: () => void;
+  onComplete: () => void;
 }) {
   const gesture = useEditGesture(onEnterEdit);
-  const passed = new Date(r.fire_at).getTime() <= Date.now();
   const [value, setValue] = useState(r.title);
   useEffect(() => {
     if (editing) setValue(r.title);
@@ -171,27 +170,21 @@ function ReminderRow({
         <>
           <button
             type="button"
-            aria-label="clear reminder"
-            onClick={onClear}
-            className="size-[14px] shrink-0 rounded-[3px] border border-border"
-          />
-          <span
-            className="w-[54px] shrink-0 font-mono text-[11px]"
-            style={{ color: passed ? "var(--accent)" : "var(--muted)" }}
+            aria-label="dismiss reminder"
+            onClick={onDismiss}
+            className="shrink-0 font-mono text-[13px] text-muted opacity-40"
           >
-            {fireLabel(r.fire_at)}
-          </span>
+            ×
+          </button>
           <span {...gesture} className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
             {r.title || "reminder"}
           </span>
           <button
             type="button"
-            aria-label="delete reminder"
-            onClick={onDelete}
-            className="shrink-0 font-mono text-[13px] text-muted opacity-40"
-          >
-            ×
-          </button>
+            aria-label="complete reminder"
+            onClick={onComplete}
+            className="size-[14px] shrink-0 rounded-[3px] border border-border"
+          />
         </>
       )}
     </div>
