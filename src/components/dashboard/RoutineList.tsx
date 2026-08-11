@@ -273,15 +273,17 @@ function RoutineRow({
       >
         <Icon size={19} strokeWidth={1.5} />
       </button>
-      <span
-        {...gesture}
-        className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
-          done ? "text-muted line-through" : "text-foreground"
-        }`}
-      >
-        {r.title}{" "}
-        <span className="font-mono text-[11px] text-muted">{scheduleLabel(r)}</span>
+      <span {...gesture} className="flex min-w-0 flex-1 items-baseline gap-3">
+        <span
+          className={`min-w-0 truncate font-sans ${textSize} ${
+            done ? "text-muted line-through" : "text-foreground"
+          }`}
+        >
+          {r.title}
+        </span>
+        <span className="shrink-0 font-mono text-[11px] text-muted">{scheduleLabel(r)}</span>
       </span>
+
       <button
         type="button"
         aria-label="delete routine"
