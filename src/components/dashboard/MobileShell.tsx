@@ -39,12 +39,14 @@ const PULL_THRESHOLD = 70;
 
 export function MobileShell({ secret }: { secret: string }) {
   const [tab, setTabState] = useState<TabId>("today");
+  const tabRef = useRef<TabId>("today");
   const setTab = useCallback((t: TabId) => {
-    setTabState((prev) => {
-      if (prev !== t) resetVisit();
-      return t;
-    });
+    if (tabRef.current === t) return;
+    tabRef.current = t;
+    resetVisit(); // completed rows leave when the view changes
+    setTabState(t);
   }, []);
+
   const [queueOpen, setQueueOpen] = useState(false);
   const hub = useReminderHub(secret);
   const ids = TAB_WIDGETS[tab];
