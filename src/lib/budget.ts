@@ -72,7 +72,10 @@ export function normalizeBudgetLines(state: unknown): BudgetLine[] {
         category_id: str(r["budget_category_id"]) ?? str(r["category_id"]) ?? str(r["category"]),
         amount: num(r["amount"]),
         label: str(r["label"]) ?? str(r["title"]) ?? str(r["note"]) ?? "",
-        ymd: toDenverYMD(str(r["spent_at"]) ?? str(r["occurred_at"]) ?? str(r["created_at"])),
+        ymd:
+          (str(r["spent_on"]) ?? "").slice(0, 10) ||
+          toDenverYMD(str(r["spent_at"]) ?? str(r["occurred_at"]) ?? str(r["created_at"])),
+
       } satisfies BudgetLine;
 
     })

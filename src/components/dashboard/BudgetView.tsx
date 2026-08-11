@@ -154,7 +154,14 @@ export function BudgetView({
       ...prev,
       { id: `tmp-${Date.now()}`, category_id: categoryId, amount, label, ymd },
     ]);
-    void sendLine("created", { category_id: categoryId, amount, label, spent_at: ymdToISO(ymd) });
+    void sendLine("created", {
+      category_id: categoryId,
+      amount,
+      label,
+      spent_on: ymd,
+      spent_at: ymdToISO(ymd),
+    });
+
   }
 
   function startLineEdit(l: BudgetLine) {
@@ -181,7 +188,7 @@ export function BudgetView({
       id,
       amount: Number.isFinite(amount) ? amount : l.amount,
       label,
-      ...(ymd ? { spent_at: ymdToISO(ymd) } : {}),
+      ...(ymd ? { spent_on: ymd, spent_at: ymdToISO(ymd) } : {}),
     });
   }
 
