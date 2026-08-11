@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ComponentType } from "react";
 import { Square, SquareCheck } from "lucide-react";
 import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { EmptyAction } from "./primitives";
+import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
 import { useDenverToday } from "@/lib/denver";
 import {
   normalizeRoutineTicks,
@@ -10,6 +11,7 @@ import {
   type Routine,
   type RoutineTicks,
 } from "@/lib/modules";
+
 
 type Props = {
   secret: string;
