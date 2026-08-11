@@ -235,7 +235,6 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
             no categories — add one
           </EmptyAction>
         )}
-        {addingCat ? null : null}
       </div>
     );
   }
