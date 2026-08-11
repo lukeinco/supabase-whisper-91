@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { denverISO, denverYMD } from "@/lib/denver";
 import { reminderTimeLabel } from "@/lib/reminders";
 import { TZ } from "@/lib/denver";
@@ -13,6 +13,7 @@ function fireLabel(iso: string): string {
   return ymd === denverYMD() ? reminderTimeLabel(iso) : dayFmt.format(d).toLowerCase();
 }
 import { EmptyAction } from "./primitives";
+import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
 import type { ReminderHub } from "./useReminderHub";
 
 function defaultTime(): string {
@@ -35,6 +36,7 @@ export function ReminderList({ hub, dense = false }: { hub: ReminderHub; dense?:
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [time, setTime] = useState(defaultTime);
+  const edit = useEditing();
 
   function save() {
     if (!title.trim()) return;
@@ -85,39 +87,23 @@ export function ReminderList({ hub, dense = false }: { hub: ReminderHub; dense?:
 
   return (
     <div className="w-full min-w-0 pb-2">
-      {list.map((r) => {
-        const passed = new Date(r.fire_at).getTime() <= Date.now();
-        return (
-          <div
-            key={r.id}
-            className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
-          >
-            <button
-              type="button"
-              aria-label="clear reminder"
-              onClick={() => hub.clearReminder(r.id)}
-              className="size-[14px] shrink-0 rounded-[3px] border border-border"
-            />
-            <span
-              className="w-[54px] shrink-0 font-mono text-[11px]"
-              style={{ color: passed ? "var(--accent)" : "var(--muted)" }}
-            >
-              {fireLabel(r.fire_at)}
-            </span>
-            <span className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
-              {r.title || "reminder"}
-            </span>
-            <button
-              type="button"
-              aria-label="delete reminder"
-              onClick={() => hub.deleteReminder(r.id)}
-              className="shrink-0 font-mono text-[13px] text-muted opacity-40"
-            >
-              ×
-            </button>
-          </div>
-        );
-      })}
+      {list.map((r) => (
+        <ReminderRow
+          key={r.id}
+          r={r}
+          rowH={rowH}
+          editing={edit.editing === r.id}
+          editRef={edit.editing === r.id ? edit.editRef : undefined}
+          onEnterEdit={() => edit.begin(r.id)}
+          onCancelEdit={edit.end}
+          onSave={(v) => {
+            edit.end();
+            if (v.trim() && v.trim() !== r.title) hub.renameReminder(r.id, v);
+          }}
+          onClear={() => hub.clearReminder(r.id)}
+          onDelete={() => hub.deleteReminder(r.id)}
+        />
+      ))}
       {adding ? (
         addRow
       ) : (
@@ -131,5 +117,83 @@ export function ReminderList({ hub, dense = false }: { hub: ReminderHub; dense?:
       )}
     </div>
 
+  );
+}
+
+function ReminderRow({
+  r,
+  rowH,
+  editing,
+  editRef,
+  onEnterEdit,
+  onCancelEdit,
+  onSave,
+  onClear,
+  onDelete,
+}: {
+  r: { id: string; title: string; fire_at: string };
+  rowH: string;
+  editing: boolean;
+  editRef: ((el: HTMLElement | null) => void) | undefined;
+  onEnterEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (value: string) => void;
+  onClear: () => void;
+  onDelete: () => void;
+}) {
+  const gesture = useEditGesture(onEnterEdit);
+  const passed = new Date(r.fire_at).getTime() <= Date.now();
+  const [value, setValue] = useState(r.title);
+  useEffect(() => {
+    if (editing) setValue(r.title);
+  }, [editing, r.title]);
+
+  return (
+    <div
+      ref={editing ? editRef : undefined}
+      className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+    >
+      {editing ? (
+        <>
+          <input
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSave(value);
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className={`${editFieldClass} font-sans text-[14px] text-foreground`}
+          />
+          <EditControls onSave={() => onSave(value)} onCancel={onCancelEdit} />
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            aria-label="clear reminder"
+            onClick={onClear}
+            className="size-[14px] shrink-0 rounded-[3px] border border-border"
+          />
+          <span
+            className="w-[54px] shrink-0 font-mono text-[11px]"
+            style={{ color: passed ? "var(--accent)" : "var(--muted)" }}
+          >
+            {fireLabel(r.fire_at)}
+          </span>
+          <span {...gesture} className="min-w-0 flex-1 truncate font-sans text-[14px] text-foreground">
+            {r.title || "reminder"}
+          </span>
+          <button
+            type="button"
+            aria-label="delete reminder"
+            onClick={onDelete}
+            className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+          >
+            ×
+          </button>
+        </>
+      )}
+    </div>
   );
 }

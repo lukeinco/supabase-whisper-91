@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { Square, SquareCheck } from "lucide-react";
 import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { EmptyAction } from "./primitives";
+import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
 import { useDenverToday } from "@/lib/denver";
 import {
   normalizeRoutineTicks,
@@ -10,6 +11,7 @@ import {
   type Routine,
   type RoutineTicks,
 } from "@/lib/modules";
+
 
 type Props = {
   secret: string;
@@ -22,6 +24,9 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   const [ticks, setTicks] = useState<RoutineTicks>({});
   const [adding, setAdding] = useState(false);
+  const edit = useEditing();
+
+
 
   useDashboardSync(
     secret,
@@ -61,6 +66,15 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
     send("created", { title: clean });
   }
 
+  function rename(r: Routine, title: string) {
+    const clean = title.trim();
+    edit.end();
+    if (!clean || clean === r.title) return;
+    setRoutines((prev) => (prev ?? []).map((x) => (x.id === r.id ? { ...x, title: clean } : x)));
+    send("edited", { id: r.id, title: clean });
+  }
+
+
   const rowH = dense ? "h-[34px]" : "h-[46px]";
   const textSize = dense ? "text-[14px]" : "text-[15px]";
 
@@ -77,29 +91,24 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
           const done = ticks[r.id] === today;
           const Icon = done ? SquareCheck : Square;
           return (
-            <div
+            <RoutineRow
               key={r.id}
-              className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
-            >
-              <button
-                type="button"
-                aria-label={done ? "untick" : "tick"}
-                onClick={() => toggle(r)}
-                className="shrink-0 text-muted"
-              >
-                <Icon size={19} strokeWidth={1.5} />
-              </button>
-              <span
-                className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
-                  done ? "text-muted line-through" : "text-foreground"
-                }`}
-              >
-                {r.title}
-              </span>
-            </div>
+              r={r}
+              done={done}
+              Icon={Icon}
+              rowH={rowH}
+              textSize={textSize}
+              editing={edit.editing === r.id}
+              editRef={edit.editing === r.id ? edit.editRef : undefined}
+              onEnterEdit={() => edit.begin(r.id)}
+              onCancelEdit={edit.end}
+              onSave={(v) => rename(r, v)}
+              onToggle={() => toggle(r)}
+            />
           );
         })
       )}
+
 
       {adding ? (
         <div
@@ -139,3 +148,78 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
     </div>
   );
 }
+
+function RoutineRow({
+  r,
+  done,
+  Icon,
+  rowH,
+  textSize,
+  editing,
+  editRef,
+  onEnterEdit,
+  onCancelEdit,
+  onSave,
+  onToggle,
+}: {
+  r: Routine;
+  done: boolean;
+  Icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  rowH: string;
+  textSize: string;
+  editing: boolean;
+  editRef: ((el: HTMLElement | null) => void) | undefined;
+  onEnterEdit: () => void;
+  onCancelEdit: () => void;
+  onSave: (value: string) => void;
+  onToggle: () => void;
+}) {
+  const gesture = useEditGesture(onEnterEdit);
+  const [value, setValue] = useState(r.title);
+  useEffect(() => {
+    if (editing) setValue(r.title);
+  }, [editing, r.title]);
+
+  return (
+    <div
+      ref={editing ? editRef : undefined}
+      className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
+    >
+      {editing ? (
+        <>
+          <input
+            autoFocus
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSave(value);
+              if (e.key === "Escape") onCancelEdit();
+            }}
+            className={`${editFieldClass} font-sans ${textSize} text-foreground`}
+          />
+          <EditControls onSave={() => onSave(value)} onCancel={onCancelEdit} />
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            aria-label={done ? "untick" : "tick"}
+            onClick={onToggle}
+            className="shrink-0 text-muted"
+          >
+            <Icon size={19} strokeWidth={1.5} />
+          </button>
+          <span
+            {...gesture}
+            className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
+              done ? "text-muted line-through" : "text-foreground"
+            }`}
+          >
+            {r.title}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+

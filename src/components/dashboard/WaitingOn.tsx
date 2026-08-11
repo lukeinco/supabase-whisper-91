@@ -5,6 +5,7 @@ import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
+import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
 import { useDenverToday } from "@/lib/denver";
 import { daysElapsed, normalizeWaiting, type WaitingItem } from "@/lib/modules";
 
@@ -20,6 +21,23 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
   const [adding, setAdding] = useState(false);
   const [what, setWhat] = useState("");
   const [who, setWho] = useState("");
+  const edit = useEditing();
+  const [draft, setDraft] = useState({ title: "", person: "" });
+
+  function beginEdit(w: WaitingItem) {
+    setDraft({ title: w.title, person: w.person ?? "" });
+    edit.begin(w.id);
+  }
+
+  function saveEdit(w: WaitingItem) {
+    const title = draft.title.trim();
+    const person = draft.person.trim();
+    edit.end();
+    if (!title) return;
+    if (title === w.title && person === (w.person ?? "")) return;
+    setItems((prev) => (prev ?? []).map((x) => (x.id === w.id ? { ...x, title, person } : x)));
+    send("edited", { id: w.id, title, person });
+  }
 
   const done = useVisitCompleted<WaitingItem>();
 
@@ -101,44 +119,51 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
       {visible.length === 0 && !adding ? (
         <EmptyAction onClick={() => setAdding(true)}>nothing pending — add one</EmptyAction>
       ) : (
-        visible.map((w) => (
-          <div
-            key={w.id}
-            className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}
-          >
-            <button
-              type="button"
-              aria-label="resolve"
-              onClick={() => resolve(w)}
-              className="shrink-0 text-muted"
+        visible.map((w) =>
+          edit.editing === w.id ? (
+            <div
+              key={w.id}
+              ref={edit.editRef}
+              className="flex w-full min-w-0 flex-col gap-1 border-b border-border px-4 py-2"
             >
-              <Square size={19} strokeWidth={1.5} />
-            </button>
-            <span
-              className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
-                done.has(w.id) ? "text-muted line-through" : "text-foreground"
-              }`}
-            >
-              {w.title}
-            </span>
-            {w.person ? (
-              <span className={`shrink-0 truncate font-sans ${textSize} text-muted`}>
-                {w.person}
-              </span>
-            ) : null}
-            <span className="shrink-0 font-mono text-[11px] text-muted">
-              {daysElapsed(w.since_ymd, today)}
-            </span>
-            <button
-              type="button"
-              aria-label="delete"
-              onClick={() => remove(w)}
-              className="shrink-0 font-mono text-[13px] text-muted opacity-40"
-            >
-              ×
-            </button>
-          </div>
-        ))
+              <input
+                autoFocus
+                value={draft.title}
+                onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEdit(w);
+                  if (e.key === "Escape") edit.end();
+                }}
+                className={`w-full ${editFieldClass} font-sans ${textSize} text-foreground`}
+              />
+              <div className="flex w-full min-w-0 items-center gap-2">
+                <input
+                  value={draft.person}
+                  placeholder="who"
+                  onChange={(e) => setDraft((d) => ({ ...d, person: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveEdit(w);
+                    if (e.key === "Escape") edit.end();
+                  }}
+                  className={`${editFieldClass} font-sans ${textSize} text-muted placeholder:text-muted`}
+                />
+                <EditControls onSave={() => saveEdit(w)} onCancel={edit.end} />
+              </div>
+            </div>
+          ) : (
+            <WaitingRow
+              key={w.id}
+              w={w}
+              rowH={rowH}
+              textSize={textSize}
+              completed={done.has(w.id)}
+              today={today}
+              onEnterEdit={() => beginEdit(w)}
+              onResolve={() => resolve(w)}
+              onRemove={() => remove(w)}
+            />
+          ),
+        )
       )}
 
       {adding ? (
@@ -184,6 +209,59 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
           + add
         </button>
       )}
+    </div>
+  );
+}
+
+function WaitingRow({
+  w,
+  rowH,
+  textSize,
+  completed,
+  today,
+  onEnterEdit,
+  onResolve,
+  onRemove,
+}: {
+  w: WaitingItem;
+  rowH: string;
+  textSize: string;
+  completed: boolean;
+  today: string;
+  onEnterEdit: () => void;
+  onResolve: () => void;
+  onRemove: () => void;
+}) {
+  const gesture = useEditGesture(onEnterEdit);
+  return (
+    <div className={`flex ${rowH} w-full min-w-0 items-center gap-2 border-b border-border px-4`}>
+      <button type="button" aria-label="resolve" onClick={onResolve} className="shrink-0 text-muted">
+        <Square size={19} strokeWidth={1.5} />
+      </button>
+      <span
+        {...gesture}
+        className={`min-w-0 flex-1 truncate font-sans ${textSize} ${
+          completed ? "text-muted line-through" : "text-foreground"
+        }`}
+      >
+        {w.title}
+      </span>
+      {w.person ? (
+        <span {...gesture} className={`shrink-0 truncate font-sans ${textSize} text-muted`}>
+          {w.person}
+        </span>
+      ) : null}
+      <span className="shrink-0 font-mono text-[11px] text-muted">
+        {daysElapsed(w.since_ymd, today)}
+      </span>
+      <button
+        type="button"
+        aria-label="delete"
+        onClick={onRemove}
+        className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+      >
+        ×
+      </button>
     </div>
   );
 }
