@@ -199,17 +199,29 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
   }
 
   const addLink = addingCat ? (
-    <input
-      autoFocus
-      placeholder="category"
-      onBlur={(e) => addCategory(e.currentTarget.value)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") addCategory(e.currentTarget.value);
-        if (e.key === "Escape") setAddingCat(false);
-      }}
-      className="w-full bg-transparent px-4 pt-2 font-mono text-[11px] text-foreground placeholder:text-muted outline-none"
-    />
+    <div className="flex w-full items-center gap-2 px-4 pt-2">
+      <input
+        autoFocus
+        placeholder="category"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") addCategory(e.currentTarget.value);
+          if (e.key === "Escape") setAddingCat(false);
+        }}
+        className="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-foreground placeholder:text-muted outline-none"
+      />
+      <button
+        type="button"
+        onClick={(e) => {
+          const input = e.currentTarget.parentElement?.querySelector("input");
+          if (input) addCategory(input.value);
+        }}
+        className="shrink-0 font-mono text-[11px] text-muted"
+      >
+        save
+      </button>
+    </div>
   ) : (
+
     <span
       role="link"
       tabIndex={0}
