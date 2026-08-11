@@ -24,6 +24,9 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
   const [routines, setRoutines] = useState<Routine[] | null>(null);
   const [ticks, setTicks] = useState<RoutineTicks>({});
   const [adding, setAdding] = useState(false);
+  const edit = useEditing();
+
+
 
   useDashboardSync(
     secret,
