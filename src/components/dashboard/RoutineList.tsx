@@ -66,6 +66,15 @@ export function RoutineList({ secret, dense = false, onUnauthorized }: Props) {
     send("created", { title: clean });
   }
 
+  function rename(r: Routine, title: string) {
+    const clean = title.trim();
+    edit.end();
+    if (!clean || clean === r.title) return;
+    setRoutines((prev) => (prev ?? []).map((x) => (x.id === r.id ? { ...x, title: clean } : x)));
+    send("edited", { id: r.id, title: clean });
+  }
+
+
   const rowH = dense ? "h-[34px]" : "h-[46px]";
   const textSize = dense ? "text-[14px]" : "text-[15px]";
 
