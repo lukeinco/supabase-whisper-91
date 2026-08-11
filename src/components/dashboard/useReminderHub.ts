@@ -16,6 +16,7 @@ export type ReminderHub = {
   clearReminder: (id: string) => void;
   deleteReminder: (id: string) => void;
   addReminder: (title: string, fireAt: string) => void;
+  renameReminder: (id: string, title: string) => void;
   cards: ReviewCard[];
   count: number;
   dismissed: ReviewCard[];
@@ -173,12 +174,25 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
 
 
 
+  const renameReminder = useCallback(
+    (id: string, title: string) => {
+      const clean = title.trim();
+      if (!clean) return;
+      setReminders((prev) => prev.map((r) => (r.id === id ? { ...r, title: clean } : r)));
+      mutate(secret, "reminder", "edited", { id, title: clean }).catch((e: unknown) => {
+        if (e instanceof UnauthorizedError) onUnauthorized?.();
+      });
+    },
+    [secret, onUnauthorized],
+  );
+
   return {
     next: nextReminder(reminders, now),
     reminders: reminders.filter((r) => !resolved.has(r.id)),
     clearReminder,
     deleteReminder,
     addReminder,
+    renameReminder,
     cards: stack,
     count: stack.length,
     dismissed,
