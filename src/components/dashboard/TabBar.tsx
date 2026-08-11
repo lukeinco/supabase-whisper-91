@@ -30,7 +30,7 @@ export function TabBar({
                 type="button"
                 onClick={() => onChange(id)}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex w-full flex-col items-center gap-1 py-2 ${
+                className={`flex w-full flex-col items-center gap-1 pb-5 pt-2 ${
                   isActive ? "text-foreground" : "text-muted"
                 }`}
               >
