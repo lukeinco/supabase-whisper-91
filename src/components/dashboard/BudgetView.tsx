@@ -60,8 +60,18 @@ export function BudgetView({
   const [draft, setDraft] = useState<Draft>({ name: "", amount: "", spread: true });
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [entry, setEntry] = useState<{ amount: string; label: string }>({ amount: "", label: "" });
+  const [entry, setEntry] = useState<{ amount: string; label: string; ymd: string }>({
+    amount: "",
+    label: "",
+    ymd: "",
+  });
   const amountRef = useRef<HTMLInputElement | null>(null);
+  const lineEdit = useEditing();
+  const [lineDraft, setLineDraft] = useState<{ amount: string; label: string; ymd: string }>({
+    amount: "",
+    label: "",
+    ymd: "",
+  });
 
   const load = useCallback(() => {
     getState(secret)
