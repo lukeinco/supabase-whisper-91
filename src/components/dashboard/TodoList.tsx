@@ -6,6 +6,7 @@ import { mutate, UnauthorizedError } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
+import { GroupAddRow } from "./GroupAddRow";
 import { dueLabel, isDueNow, useDenverToday, ymdToISO } from "@/lib/denver";
 import type { DashboardState } from "@/lib/api";
 import {
@@ -341,6 +342,25 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
     send("created", { title: clean, due_at: null });
   }
 
+  /** Deliberate path: create straight into a folder, optionally with a parsed due date. */
+  function addTo(folderId: string, title: string, due: Date | null) {
+    const ymd = due ? dateToYMD(due) : null;
+    setTodos((prev) => [
+      ...(prev ?? []),
+      {
+        id: `tmp-${Date.now()}`,
+        title,
+        folder_id: folderId,
+        due_ymd: ymd,
+        position: prev?.length ?? 0,
+        recur_rule: null,
+        deferred_count: 0,
+        deferral_history: [],
+      },
+    ]);
+    send("created", { title, folder_id: folderId, due_at: ymd ? ymdToISO(ymd) : null });
+  }
+
   return (
     <div ref={listRef} className="w-full min-w-0 pb-2">
       {todos.length === 0 && !addingTodo ? (
@@ -423,11 +443,14 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
               )}
             </div>
             <div className="mt-1">
-              {items.length === 0 ? (
-                <p className="px-3 pb-2 font-mono text-[11px] text-muted">empty</p>
-              ) : (
-                items.map((t) => row(t, false))
-              )}
+              {items.map((t) => row(t, false))}
+              <GroupAddRow
+                rowH={rowH}
+                textSize={textSize}
+                label="+ add to this folder"
+                parseDates
+                onSubmit={({ title, due }) => addTo(folder.id, title, due)}
+              />
             </div>
           </div>
         ))}

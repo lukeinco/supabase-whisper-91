@@ -4,6 +4,7 @@ import { mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction, focusCapture } from "./primitives";
+import { GroupAddRow } from "./GroupAddRow";
 import {
   matchBudgetCategory,
   normalizeBudgetCategories,
@@ -177,6 +178,20 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
     sendCat("edited", { id: c.id, name: clean });
   }
 
+  /** Deliberate path: create straight into a category. */
+  function addTo(categoryId: string, title: string) {
+    setItems((prev) => [
+      ...(prev ?? []),
+      {
+        id: `tmp-${Date.now()}`,
+        title,
+        category_id: categoryId,
+        position: prev?.length ?? 0,
+      } as BuyItem,
+    ]);
+    send("created", { title, category_id: categoryId });
+  }
+
   function removeCategory(c: BuyCategory) {
     setCategories((prev) => prev.filter((x) => x.id !== c.id));
     sendCat("deleted", { id: c.id });
@@ -289,10 +304,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
               </button>
             </div>
             <div className="mt-1">
-              {list.length === 0 ? (
-                <p className="px-3 pb-2 font-mono text-[11px] text-muted">empty</p>
-              ) : (
-                list.map((b) => {
+              {list.map((b) => {
                   const p = pending[b.id];
                   return (
                     <div key={b.id}>
@@ -390,8 +402,13 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                       ) : null}
                     </div>
                   );
-                })
-              )}
+              })}
+              <GroupAddRow
+                rowH={rowH}
+                textSize={textSize}
+                label="+ add to this list"
+                onSubmit={({ title }) => addTo(category.id, title)}
+              />
             </div>
           </div>
         ))}
