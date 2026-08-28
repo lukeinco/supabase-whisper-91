@@ -4,7 +4,17 @@
 // x-app-secret header and the functions hold the service role key server-side.
 
 import { toast } from "sonner";
-import { bumpVersion, clearCache, readCache, setOffline, writeCache } from "./state-cache";
+import {
+  bumpVersion,
+  clearCache,
+  commitState,
+  logState,
+  readCache,
+  setOffline,
+  writeCache,
+} from "./state-cache";
+import { commitMutation } from "./state-commit";
+
 
 const SUPABASE_URL = (
   (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ??
@@ -91,24 +101,33 @@ let inflight: Promise<DashboardState> | null = null;
 let lastFetchAt = 0;
 let fetchedOnce = false;
 
+/** Monotonic sequence: a snapshot older than the last applied one is dropped. */
+let fetchSeq = 0;
+let appliedFetchSeq = 0;
+
 /**
  * The ONE network read. Shared in-flight promise, so any number of concurrent
  * callers produce a single request. The response is only allowed to land if no
- * optimistic mutation happened while it was in the air.
+ * optimistic mutation happened while it was in the air, and only if it is
+ * newer than the last snapshot already applied.
  */
 function fetchState(secret: string): Promise<DashboardState> {
   if (inflight) return inflight;
   const launchedAt = localVersion;
+  const seq = ++fetchSeq;
   lastFetchAt = Date.now();
   inflight = call<DashboardState>("state", secret, { method: "GET" })
     .then((state) => {
       fetchedOnce = true;
       setOffline(false);
-      if (localVersion !== launchedAt) {
+      if (localVersion !== launchedAt || seq <= appliedFetchSeq) {
         // Stale: local data is newer than this snapshot. Discard it entirely.
         return readCache();
       }
+      appliedFetchSeq = seq;
+      // Wholesale replace — merging would resurrect deleted rows.
       writeCache(state);
+      logState(state, "fetch");
       return state;
     })
     .finally(() => {
@@ -116,6 +135,7 @@ function fetchState(secret: string): Promise<DashboardState> {
     });
   return inflight;
 }
+
 
 /** Cache-first read. Hydrates instantly, refreshes in the background once. */
 export function getState(secret: string): Promise<DashboardState> {
@@ -226,8 +246,10 @@ async function send<T>(
       method: "POST",
       body: JSON.stringify({ entity, action, payload }),
     });
-    // No refetch on success: callers apply the returned row in place.
+    // Write-through: React state and the cache move together, always.
+    commitMutation(entity, action, payload, resultRow(res));
     return res;
+
   } catch (e) {
     if (e instanceof UnauthorizedError) {
       clearCache();
@@ -252,9 +274,17 @@ export async function getLayout(secret: string): Promise<{ layout: WidgetLayout[
   return { layout: state?.layout ?? null };
 }
 
+/** Debounced: a drag or resize produces one write, 800ms after it settles. */
+let layoutTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function saveLayout(secret: string, layout: WidgetLayout[]) {
-  return mutate(secret, "layout", "edited", { layout });
+  if (layoutTimer) clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(() => {
+    layoutTimer = null;
+    void mutate(secret, "layout", "edited", { layout }).catch(() => undefined);
+  }, 800);
 }
+
 
 /**
  * GET /functions/v1/calendar — today's events in America/Denver.

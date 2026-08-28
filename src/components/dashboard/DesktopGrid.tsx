@@ -155,9 +155,8 @@ export function DesktopGrid({
       };
     });
     setLayout(clean);
-    saveLayout(secret, clean).catch((e: unknown) => {
-      if (e instanceof UnauthorizedError) onUnauthorized();
-    });
+    saveLayout(secret, clean);
+
   }
 
   return (
