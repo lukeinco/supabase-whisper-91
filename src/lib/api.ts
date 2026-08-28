@@ -246,8 +246,10 @@ async function send<T>(
       method: "POST",
       body: JSON.stringify({ entity, action, payload }),
     });
-    // No refetch on success: callers apply the returned row in place.
+    // Write-through: React state and the cache move together, always.
+    commitMutation(entity, action, payload, resultRow(res));
     return res;
+
   } catch (e) {
     if (e instanceof UnauthorizedError) {
       clearCache();
