@@ -137,7 +137,7 @@ export type MonthInfo = {
   elapsedRatio: number;
 };
 
-const monthNameFmt = new Intl.DateTimeFormat("en-US", { month: "long" });
+const monthNameFmt = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" });
 
 /** Everything derived from the current Denver date. */
 export function monthInfo(todayYMD: string): MonthInfo {
@@ -153,6 +153,11 @@ export function monthInfo(todayYMD: string): MonthInfo {
     days,
     elapsedRatio: day / days,
   };
+}
+
+/** Month-to-date total across every line in the month, categorized or not. */
+export function monthTotal(lines: BudgetLine[], prefix: string): number {
+  return lines.reduce((s, l) => (l.ymd?.startsWith(prefix) ? s + l.amount : s), 0);
 }
 
 /** Month-to-date spend per category id. */
@@ -185,7 +190,7 @@ export function linesForCategory(
     .sort((a, b) => (b.ymd ?? "").localeCompare(a.ymd ?? ""));
 }
 
-const shortMonthFmt = new Intl.DateTimeFormat("en-US", { month: "short" });
+const shortMonthFmt = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
 
 /** "aug 8" */
 export function shortDate(ymd: string | null): string {
