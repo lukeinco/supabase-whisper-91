@@ -101,24 +101,33 @@ let inflight: Promise<DashboardState> | null = null;
 let lastFetchAt = 0;
 let fetchedOnce = false;
 
+/** Monotonic sequence: a snapshot older than the last applied one is dropped. */
+let fetchSeq = 0;
+let appliedFetchSeq = 0;
+
 /**
  * The ONE network read. Shared in-flight promise, so any number of concurrent
  * callers produce a single request. The response is only allowed to land if no
- * optimistic mutation happened while it was in the air.
+ * optimistic mutation happened while it was in the air, and only if it is
+ * newer than the last snapshot already applied.
  */
 function fetchState(secret: string): Promise<DashboardState> {
   if (inflight) return inflight;
   const launchedAt = localVersion;
+  const seq = ++fetchSeq;
   lastFetchAt = Date.now();
   inflight = call<DashboardState>("state", secret, { method: "GET" })
     .then((state) => {
       fetchedOnce = true;
       setOffline(false);
-      if (localVersion !== launchedAt) {
+      if (localVersion !== launchedAt || seq <= appliedFetchSeq) {
         // Stale: local data is newer than this snapshot. Discard it entirely.
         return readCache();
       }
+      appliedFetchSeq = seq;
+      // Wholesale replace — merging would resurrect deleted rows.
       writeCache(state);
+      logState(state, "fetch");
       return state;
     })
     .finally(() => {
@@ -126,6 +135,7 @@ function fetchState(secret: string): Promise<DashboardState> {
     });
   return inflight;
 }
+
 
 /** Cache-first read. Hydrates instantly, refreshes in the background once. */
 export function getState(secret: string): Promise<DashboardState> {
