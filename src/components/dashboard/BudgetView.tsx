@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getState, mutate, resultId, UnauthorizedError } from "@/lib/api";
+import { getState, mutate, refreshState, resultId, UnauthorizedError } from "@/lib/api";
 import { useStateVersion } from "@/lib/state-cache";
 import { useDenverToday } from "@/lib/denver";
 import {
@@ -106,6 +106,19 @@ export function BudgetView({
   useEffect(() => {
     if (dataVersion > 0) load();
   }, [dataVersion, load]);
+
+  // Month rollover: categories and their monthly budgets carry over untouched,
+  // but the spend/received figures are month-scoped, so pull a fresh snapshot
+  // the moment the Denver month changes — no reload needed.
+  const firstMonth = useRef(month.prefix);
+  useEffect(() => {
+    if (firstMonth.current === month.prefix) return;
+    firstMonth.current = month.prefix;
+    setExpanded(null);
+    setEntry({ amount: "", label: "", ymd: "" });
+    void refreshState(secret).then(load).catch(() => undefined);
+  }, [month.prefix, secret, load]);
+
 
   const earned = lines.filter((l) => !l.pending);
   const spend = spendByCategory(earned, month.prefix);
