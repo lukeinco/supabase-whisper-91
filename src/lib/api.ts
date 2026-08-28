@@ -4,7 +4,17 @@
 // x-app-secret header and the functions hold the service role key server-side.
 
 import { toast } from "sonner";
-import { bumpVersion, clearCache, readCache, setOffline, writeCache } from "./state-cache";
+import {
+  bumpVersion,
+  clearCache,
+  commitState,
+  logState,
+  readCache,
+  setOffline,
+  writeCache,
+} from "./state-cache";
+import { commitMutation } from "./state-commit";
+
 
 const SUPABASE_URL = (
   (import.meta.env["VITE_SUPABASE_URL"] as string | undefined) ??
