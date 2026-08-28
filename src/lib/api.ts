@@ -274,9 +274,17 @@ export async function getLayout(secret: string): Promise<{ layout: WidgetLayout[
   return { layout: state?.layout ?? null };
 }
 
+/** Debounced: a drag or resize produces one write, 800ms after it settles. */
+let layoutTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function saveLayout(secret: string, layout: WidgetLayout[]) {
-  return mutate(secret, "layout", "edited", { layout });
+  if (layoutTimer) clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(() => {
+    layoutTimer = null;
+    void mutate(secret, "layout", "edited", { layout }).catch(() => undefined);
+  }, 800);
 }
+
 
 /**
  * GET /functions/v1/calendar — today's events in America/Denver.
