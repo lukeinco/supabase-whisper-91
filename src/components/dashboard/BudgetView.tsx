@@ -125,9 +125,15 @@ export function BudgetView({
 
   if (cats === null) return <LoadingLine />;
 
-  const totalSpent = cats.reduce((s, c) => s + (spend[c.id] ?? 0), 0);
-  const totalBudget = cats.reduce((s, c) => s + c.monthly_budget, 0);
   const catIds = new Set(cats.map((c) => c.id));
+  // The month total counts every line in this month — including the amounts
+  // that pushed a category past its budget, and lines with no category.
+  const totalSpent = earned
+    .filter((l) => l.ymd?.startsWith(month.prefix))
+    .filter((l) => (l.category_id ? catIds.has(l.category_id) : !income))
+    .reduce((s, l) => s + l.amount, 0);
+  const totalBudget = cats.reduce((s, c) => s + c.monthly_budget, 0);
+
   const pendingTotal = lines
     .filter((l) => l.pending && l.category_id && catIds.has(l.category_id))
     .reduce((s, l) => s + (l.potential_amount ?? 0), 0);
