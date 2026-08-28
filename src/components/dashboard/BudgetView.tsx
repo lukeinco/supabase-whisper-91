@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getState, mutate, resultId, UnauthorizedError } from "@/lib/api";
+import { getState, mutate, refreshState, resultId, UnauthorizedError } from "@/lib/api";
 import { useStateVersion } from "@/lib/state-cache";
 import { useDenverToday } from "@/lib/denver";
 import {
