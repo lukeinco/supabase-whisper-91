@@ -1,3 +1,4 @@
+importScripts("/push-sw.js");
 /* App-shell service worker. Caches the shell ONLY.
    It must never cache dashboard data: anything hitting a Supabase Edge
    Function (/functions/v1/*) or any non-GET request goes straight to the
