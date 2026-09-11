@@ -28,6 +28,8 @@ export default defineConfig({
         workbox: {
           // App shell only — hashed build assets. Never API payloads.
           globPatterns: ["**/*.{js,css,woff,woff2}"],
+                    globIgnores: ["push-sw.js"],
+          importScripts: ["/push-sw.js"],
           navigateFallback: null,
           cleanupOutdatedCaches: true,
           clientsClaim: true,
