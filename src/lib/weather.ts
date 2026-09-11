@@ -8,6 +8,8 @@ export type Weather = {
   high: number;
   low: number;
   precip: number;
+  code: number;
+  isDay: boolean;
 };
 
 function coords(): Promise<{ lat: number; lon: number }> {
@@ -20,7 +22,7 @@ function coords(): Promise<{ lat: number; lon: number }> {
     navigator.geolocation.getCurrentPosition(
       (p) => done({ lat: p.coords.latitude, lon: p.coords.longitude }),
       () => done(FALLBACK),
-      { timeout: 8000, maximumAge: 15 * 60 * 1000 },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 5 * 60 * 1000 },
     );
   });
 }
@@ -28,17 +30,18 @@ function coords(): Promise<{ lat: number; lon: number }> {
 async function fetchWeather(lat: number, lon: number): Promise<Weather | null> {
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    `&current=temperature_2m` +
-    `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
-    `&temperature_unit=fahrenheit&timezone=America%2FDenver&forecast_days=1`;
+    `&current=temperature_2m,weather_code,is_day` +
+    `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code` +
+    `&temperature_unit=fahrenheit&timezone=auto&forecast_days=1`;
   const res = await fetch(url);
   if (!res.ok) return null;
   const j = (await res.json()) as {
-    current?: { temperature_2m?: number };
+    current?: { temperature_2m?: number; weather_code?: number; is_day?: number };
     daily?: {
       temperature_2m_max?: number[];
       temperature_2m_min?: number[];
       precipitation_probability_max?: number[];
+      weather_code?: number[];
     };
   };
   const d = j.daily;
@@ -51,6 +54,8 @@ async function fetchWeather(lat: number, lon: number): Promise<Weather | null> {
     high: Math.round(high),
     low: Math.round(low),
     precip: Math.round(d?.precipitation_probability_max?.[0] ?? 0),
+    code: j.current?.weather_code ?? d?.weather_code?.[0] ?? 0,
+    isDay: (j.current?.is_day ?? 1) === 1,
   };
 }
 
