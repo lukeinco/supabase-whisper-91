@@ -39,8 +39,8 @@ const TAB_ORDER: TabId[] = ["today", "do", "buy", "budget", "notes"];
 const PULL_THRESHOLD = 70;
 
 export function MobileShell({ secret }: { secret: string }) {
-  const [tab, setTabState] = useState<TabId>("today");
-  const tabRef = useRef<TabId>("today");
+  const [tab, setTabState] = useState<TabId>("budget");
+  const tabRef = useRef<TabId>("budget");
   const setTab = useCallback((t: TabId) => {
     if (tabRef.current === t) return;
     tabRef.current = t;
