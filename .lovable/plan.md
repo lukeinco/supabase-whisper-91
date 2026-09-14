@@ -8,7 +8,7 @@
 
 1. **New helper `src/lib/optimistic.ts`** — the same block appears in 5 files (≥4), so per the rule in the request, extract one helper:
    ```ts
-   export function reconcileOptimistic<T extends { id: string }>(
+   export function reconcileOptimistic<T extends { id?: string | null }>(
      list: T[], tmpId: string, realId: string | null,
    ): T[] {
      if (!realId) return list.filter((x) => x.id !== tmpId);
