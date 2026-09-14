@@ -1,7 +1,7 @@
 const VAPID_PUBLIC =
   "BGiTzXBg2sDXerGS9elarT7UMVJNrrfowqhpBhOkYZWDXzT0GHlDJ3W6svCE8f_9jHhW7y-N4dylZmLurI5Iu4I";
 
-const PUSH_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/push`;
+const PUSH_URL = `${import.meta.env["VITE_SUPABASE_URL"]}/functions/v1/push`;
 
 function toUint8(base64: string) {
   const pad = "=".repeat((4 - (base64.length % 4)) % 4);

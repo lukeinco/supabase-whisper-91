@@ -186,11 +186,7 @@ export function BudgetView({
   /** Swap an optimistic row for the real one the server returned. */
   function reconcile(tmpId: string, res: unknown) {
     const realId = resultId(res);
-    setLines((prev) =>
-      realId
-        ? prev.map((x) => (x.id === tmpId ? { ...x, id: realId } : x))
-        : prev.filter((x) => x.id !== tmpId),
-    );
+    setLines((prev) => reconcileOptimistic(prev, tmpId, realId));
   }
 
   function addLine(categoryId: string) {
