@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { resultId, mutate, UnauthorizedError } from "@/lib/api";
+import { reconcileOptimistic } from "@/lib/optimistic";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
@@ -230,11 +231,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   /** Swap an optimistic to-do for the row the server actually created. */
   function reconcileTodo(tmpId: string, res: unknown) {
     const real = resultId(res);
-    setTodos((prev) =>
-      real
-        ? (prev ?? []).map((x) => (x.id === tmpId ? { ...x, id: real } : x))
-        : (prev ?? []).filter((x) => x.id !== tmpId),
-    );
+    setTodos((prev) => reconcileOptimistic(prev ?? [], tmpId, real));
   }
 
   function addFolder(name: string) {
