@@ -8,7 +8,7 @@
 
 1. **New helper `src/lib/optimistic.ts`** — the same block appears in 5 files (≥4), so per the rule in the request, extract one helper:
    ```ts
-   export function reconcileOptimistic<T extends { id: string }>(
+   export function reconcileOptimistic<T extends { id?: string | null }>(
      list: T[], tmpId: string, realId: string | null,
    ): T[] {
      if (!realId) return list.filter((x) => x.id !== tmpId);
@@ -35,8 +35,8 @@
 ## Verification
 
 - TypeScript typecheck.
-- Rebuild: yes — this is client-bundle code, so publishing a new build is required for the fix to reach production.
-- Authenticated live verification (add a budget line, watch for duplicates, delete it) needs a valid `#k=` secret; without it I'll report the flow unverified rather than claim it works.
+- Rebuild: yes — this is client-bundle code, so a rebuild and publish are required for the fix to reach production.
+- Do not request the access secret. The authenticated flow is reported unverified; the user verifies manually.
 
 ## Report format
 
