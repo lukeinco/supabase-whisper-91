@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getState, mutate, refreshState, resultId, UnauthorizedError } from "@/lib/api";
 import { useStateVersion } from "@/lib/state-cache";
+import { reconcileOptimistic } from "@/lib/optimistic";
 import { useDenverToday } from "@/lib/denver";
 import {
   linesForCategory,
@@ -186,11 +187,7 @@ export function BudgetView({
   /** Swap an optimistic row for the real one the server returned. */
   function reconcile(tmpId: string, res: unknown) {
     const realId = resultId(res);
-    setLines((prev) =>
-      realId
-        ? prev.map((x) => (x.id === tmpId ? { ...x, id: realId } : x))
-        : prev.filter((x) => x.id !== tmpId),
-    );
+    setLines((prev) => reconcileOptimistic(prev, tmpId, realId));
   }
 
   function addLine(categoryId: string) {
@@ -345,11 +342,7 @@ export function BudgetView({
       const res = await mutate(secret, "budget_category", id ? "edited" : "created", payload);
       if (!id) {
         const realId = resultId(res);
-        setCats((prev) =>
-          realId
-            ? (prev ?? []).map((c) => (c.id === tmpId ? { ...c, id: realId } : c))
-            : (prev ?? []).filter((c) => c.id !== tmpId),
-        );
+        setCats((prev) => reconcileOptimistic(prev ?? [], tmpId, realId));
       }
     } catch (e) {
       if (!id) setCats((prev) => (prev ?? []).filter((c) => c.id !== tmpId));

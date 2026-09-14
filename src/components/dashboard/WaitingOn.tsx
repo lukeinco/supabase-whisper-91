@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import { Square } from "lucide-react";
 import { resultId, mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { reconcileOptimistic } from "@/lib/optimistic";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
@@ -104,11 +105,7 @@ export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
     void send("created", { title, person })
       .then((res) => {
         const real = resultId(res);
-        setItems((prev) =>
-          real
-            ? (prev ?? []).map((x) => (x.id === tmpId ? { ...x, id: real } : x))
-            : (prev ?? []).filter((x) => x.id !== tmpId),
-        );
+        setItems((prev) => reconcileOptimistic(prev ?? [], tmpId, real));
       })
       .catch(() => setItems((prev) => (prev ?? []).filter((x) => x.id !== tmpId)));
   }

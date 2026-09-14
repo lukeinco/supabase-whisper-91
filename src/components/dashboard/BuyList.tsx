@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { resultId, mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { reconcileOptimistic } from "@/lib/optimistic";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction, focusCapture } from "./primitives";
@@ -238,11 +239,7 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
     void send("created", { title, category_id: categoryId })
       .then((res) => {
         const real = resultId(res);
-        setItems((prev) =>
-          real
-            ? (prev ?? []).map((x) => (x.id === tmpId ? { ...x, id: real } : x))
-            : (prev ?? []).filter((x) => x.id !== tmpId),
-        );
+        setItems((prev) => reconcileOptimistic(prev ?? [], tmpId, real));
       })
       .catch(() => setItems((prev) => (prev ?? []).filter((x) => x.id !== tmpId)));
   }
