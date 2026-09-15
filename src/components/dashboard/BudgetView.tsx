@@ -154,7 +154,33 @@ export function BudgetView({
     return s + (c.monthly_budget > 0 && sp > c.monthly_budget ? sp - c.monthly_budget : 0);
   }, 0);
 
+  function removeCat(c: BudgetCat) {
+    if (c.id.startsWith("tmp-")) return;
+    setDelId(null);
+    if (expanded === c.id) setExpanded(null);
+    setCats((prev) => (prev ?? []).filter((x) => x.id !== c.id));
+    void mutate(secret, "budget_category", "deleted", { id: c.id }).catch((e: unknown) => {
+      if (e instanceof UnauthorizedError) onUnauthorized?.();
+      setCats((prev) =>
+        [...(prev ?? []), c].sort((a, b) => a.position - b.position),
+      );
+    });
+    toast("category deleted", {
+      duration: 5000,
+      action: {
+        label: "undo",
+        onClick: () => {
+          setCats((prev) => [...(prev ?? []), c].sort((a, b) => a.position - b.position));
+          void mutate(secret, "budget_category", "edited", { id: c.id, deleted_at: null }).catch(
+            () => undefined,
+          );
+        },
+      },
+    });
+  }
+
   function startEdit(c: BudgetCat) {
+    setDelId(null);
     setAdding(false);
     edit.begin(c.id);
     setDraft({ name: c.name, amount: String(c.monthly_budget || ""), spread: c.spread });
