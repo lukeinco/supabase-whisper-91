@@ -81,6 +81,17 @@ export function BudgetView({
     null,
   );
   const [selling, setSelling] = useState<{ id: string; amount: string } | null>(null);
+  // Which category's delete × is revealed (mobile long-press; desktop uses hover).
+  const [delId, setDelId] = useState<string | null>(null);
+  const lpTimer = useRef<number | null>(null);
+  const lpStart = useRef<{ x: number; y: number } | null>(null);
+  const lpClear = useCallback(() => {
+    if (lpTimer.current !== null) {
+      window.clearTimeout(lpTimer.current);
+      lpTimer.current = null;
+    }
+  }, []);
+  useEffect(() => lpClear, [lpClear]);
 
   const load = useCallback(() => {
     getState(secret)
@@ -143,7 +154,33 @@ export function BudgetView({
     return s + (c.monthly_budget > 0 && sp > c.monthly_budget ? sp - c.monthly_budget : 0);
   }, 0);
 
+  function removeCat(c: BudgetCat) {
+    if (c.id.startsWith("tmp-")) return;
+    setDelId(null);
+    if (expanded === c.id) setExpanded(null);
+    setCats((prev) => (prev ?? []).filter((x) => x.id !== c.id));
+    void mutate(secret, "budget_category", "deleted", { id: c.id }).catch((e: unknown) => {
+      if (e instanceof UnauthorizedError) onUnauthorized?.();
+      setCats((prev) =>
+        [...(prev ?? []), c].sort((a, b) => a.position - b.position),
+      );
+    });
+    toast("category deleted", {
+      duration: 5000,
+      action: {
+        label: "undo",
+        onClick: () => {
+          setCats((prev) => [...(prev ?? []), c].sort((a, b) => a.position - b.position));
+          void mutate(secret, "budget_category", "edited", { id: c.id, deleted_at: null }).catch(
+            () => undefined,
+          );
+        },
+      },
+    });
+  }
+
   function startEdit(c: BudgetCat) {
+    setDelId(null);
     setAdding(false);
     edit.begin(c.id);
     setDraft({ name: c.name, amount: String(c.monthly_budget || ""), spread: c.spread });
@@ -473,10 +510,42 @@ export function BudgetView({
                       toggleExpand(c.id);
                     }
                   }}
-                  className={`w-full cursor-pointer px-4 ${dense ? "py-2" : "py-3"}`}
+                  onTouchStart={(e) => {
+                    const t = e.touches[0];
+                    if (!t) return;
+                    lpStart.current = { x: t.clientX, y: t.clientY };
+                    lpClear();
+                    lpTimer.current = window.setTimeout(() => {
+                      lpTimer.current = null;
+                      setDelId((prev) => (prev === c.id ? null : c.id));
+                    }, 500);
+                  }}
+                  onTouchMove={(e) => {
+                    const t = e.touches[0];
+                    const s = lpStart.current;
+                    if (!t || !s) return;
+                    if (Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10) lpClear();
+                  }}
+                  onTouchEnd={lpClear}
+                  onTouchCancel={lpClear}
+                  onContextMenu={(e) => e.preventDefault()}
+                  className={`group w-full cursor-pointer px-4 ${dense ? "py-2" : "py-3"}`}
                 >
                   <div className="flex w-full items-baseline justify-between gap-3 text-left">
                     <CategoryName name={c.name} over={over} onEnterEdit={() => startEdit(c)} />
+                    <button
+                      type="button"
+                      aria-label={`delete ${c.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeCat(c);
+                      }}
+                      className={`shrink-0 font-mono text-[13px] leading-none text-muted transition-opacity hover:opacity-100 focus-visible:opacity-100 ${
+                        delId === c.id ? "opacity-60" : "opacity-0 group-hover:opacity-60"
+                      }`}
+                    >
+                      ×
+                    </button>
                     <span
                       className={`shrink-0 font-mono text-[12px] ${
                         over ? "text-accent" : "text-muted"
