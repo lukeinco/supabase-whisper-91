@@ -510,10 +510,42 @@ export function BudgetView({
                       toggleExpand(c.id);
                     }
                   }}
-                  className={`w-full cursor-pointer px-4 ${dense ? "py-2" : "py-3"}`}
+                  onTouchStart={(e) => {
+                    const t = e.touches[0];
+                    if (!t) return;
+                    lpStart.current = { x: t.clientX, y: t.clientY };
+                    lpClear();
+                    lpTimer.current = window.setTimeout(() => {
+                      lpTimer.current = null;
+                      setDelId((prev) => (prev === c.id ? null : c.id));
+                    }, 500);
+                  }}
+                  onTouchMove={(e) => {
+                    const t = e.touches[0];
+                    const s = lpStart.current;
+                    if (!t || !s) return;
+                    if (Math.abs(t.clientX - s.x) > 10 || Math.abs(t.clientY - s.y) > 10) lpClear();
+                  }}
+                  onTouchEnd={lpClear}
+                  onTouchCancel={lpClear}
+                  onContextMenu={(e) => e.preventDefault()}
+                  className={`group w-full cursor-pointer px-4 ${dense ? "py-2" : "py-3"}`}
                 >
                   <div className="flex w-full items-baseline justify-between gap-3 text-left">
                     <CategoryName name={c.name} over={over} onEnterEdit={() => startEdit(c)} />
+                    <button
+                      type="button"
+                      aria-label={`delete ${c.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeCat(c);
+                      }}
+                      className={`shrink-0 font-mono text-[13px] leading-none text-muted transition-opacity hover:opacity-100 focus-visible:opacity-100 ${
+                        delId === c.id ? "opacity-60" : "opacity-0 group-hover:opacity-60"
+                      }`}
+                    >
+                      ×
+                    </button>
                     <span
                       className={`shrink-0 font-mono text-[12px] ${
                         over ? "text-accent" : "text-muted"
