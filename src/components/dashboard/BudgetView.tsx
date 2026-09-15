@@ -81,6 +81,17 @@ export function BudgetView({
     null,
   );
   const [selling, setSelling] = useState<{ id: string; amount: string } | null>(null);
+  // Which category's delete × is revealed (mobile long-press; desktop uses hover).
+  const [delId, setDelId] = useState<string | null>(null);
+  const lpTimer = useRef<number | null>(null);
+  const lpStart = useRef<{ x: number; y: number } | null>(null);
+  const lpClear = useCallback(() => {
+    if (lpTimer.current !== null) {
+      window.clearTimeout(lpTimer.current);
+      lpTimer.current = null;
+    }
+  }, []);
+  useEffect(() => lpClear, [lpClear]);
 
   const load = useCallback(() => {
     getState(secret)
