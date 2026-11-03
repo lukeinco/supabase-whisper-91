@@ -373,6 +373,7 @@ export function BudgetView({
   }
 
   async function save(id: string | null) {
+    heldCategory.current = false;
     const payload = {
       ...(id ? { id } : {}),
       name: draft.name.trim(),
@@ -470,6 +471,7 @@ export function BudgetView({
         <button
           type="button"
           onClick={() => {
+            heldCategory.current = false;
             edit.end();
             setAdding(false);
           }}
