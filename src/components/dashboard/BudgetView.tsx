@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { Pencil, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BudgetCategoryEditor } from "./BudgetCategoryEditor";
 import { getState, mutate, refreshState, resultId, UnauthorizedError } from "@/lib/api";
 import { useStateVersion } from "@/lib/state-cache";
 import { reconcileOptimistic } from "@/lib/optimistic";
@@ -64,6 +67,9 @@ export function BudgetView({
   const editing = edit.editing;
   const [draft, setDraft] = useState<Draft>({ name: "", amount: "", spread: true });
   const [adding, setAdding] = useState(false);
+  const [categoryMode, setCategoryMode] = useState(false);
+  const catsRef = useRef<BudgetCat[]>([]);
+  catsRef.current = cats ?? [];
   const [expanded, setExpanded] = useState<string | null>(null);
   const [entry, setEntry] = useState<{ amount: string; label: string; ymd: string }>({
     amount: "",
@@ -81,8 +87,7 @@ export function BudgetView({
     null,
   );
   const [selling, setSelling] = useState<{ id: string; amount: string } | null>(null);
-  // Which category's delete × is revealed (mobile long-press; desktop uses hover).
-  const [delId, setDelId] = useState<string | null>(null);
+  const heldCategory = useRef(false);
   const lpTimer = useRef<number | null>(null);
   const lpStart = useRef<{ x: number; y: number } | null>(null);
   const lpClear = useCallback(() => {
@@ -156,7 +161,6 @@ export function BudgetView({
 
   function removeCat(c: BudgetCat) {
     if (c.id.startsWith("tmp-")) return;
-    setDelId(null);
     if (expanded === c.id) setExpanded(null);
     setCats((prev) => (prev ?? []).filter((x) => x.id !== c.id));
     void mutate(secret, "budget_category", "deleted", { id: c.id }).catch((e: unknown) => {
@@ -180,10 +184,39 @@ export function BudgetView({
   }
 
   function startEdit(c: BudgetCat) {
-    setDelId(null);
+    if (c.id.startsWith("tmp-")) return;
     setAdding(false);
     edit.begin(c.id);
     setDraft({ name: c.name, amount: String(c.monthly_budget || ""), spread: c.spread });
+  }
+
+  function renameCategory(c: BudgetCat, name: string) {
+    setCats((prev) => (prev ?? []).map((item) => item.id === c.id ? { ...item, name } : item));
+    void mutate(secret, "budget_category", "edited", { id: c.id, name }).catch(() => {
+      setCats((prev) => (prev ?? []).map((item) => item.id === c.id ? { ...item, name: c.name } : item));
+      toast("could not save category name");
+    });
+  }
+
+  function reorderCategory(id: string, overId: string) {
+    const current = catsRef.current;
+    const from = current.findIndex((item) => item.id === id);
+    const to = current.findIndex((item) => item.id === overId);
+    if (from < 0 || to < 0 || from === to) return;
+    const next = [...current];
+    const [moved] = next.splice(from, 1);
+    if (!moved) return;
+    next.splice(to, 0, moved);
+    const ordered = next.map((item, position) => ({ ...item, position }));
+    catsRef.current = ordered;
+    setCats(ordered);
+  }
+
+  function persistCategoryOrder() {
+    const ordered = catsRef.current;
+    void Promise.all(ordered.filter((c) => !c.id.startsWith("tmp-")).map((c) =>
+      mutate(secret, "budget_category", "edited", { id: c.id, position: c.position }),
+    )).catch(() => { toast("could not save category order"); load(); });
   }
 
   function toggleExpand(id: string) {
@@ -451,8 +484,8 @@ export function BudgetView({
   return (
     <div className="w-full max-w-full">
       <div className="px-4 py-3">
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="font-sans text-[16px] text-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <span className="min-w-0 flex-1 font-sans text-[16px] text-foreground">
             {income ? `${month.name} — ${money(totalSpent)} received` : month.name}
           </span>
           {income ? null : (
@@ -461,6 +494,12 @@ export function BudgetView({
               {overage > 0 ? <span className="text-accent"> · {money(-overage)}</span> : null}
             </span>
           )}
+          <Button variant="ghost" size="icon"
+            aria-label={categoryMode ? "finish editing categories" : "edit categories"}
+            title={categoryMode ? "Done" : "Edit categories"} aria-pressed={categoryMode}
+            onClick={() => { setCategoryMode((value) => !value); edit.end(); setExpanded(null); }}
+            className="size-11 shrink-0 text-muted hover:bg-muted/10 hover:text-foreground"
+          >{categoryMode ? <Check /> : <Pencil />}</Button>
         </div>
         {income ? (
           pendingTotal > 0 ? (
@@ -499,25 +538,34 @@ export function BudgetView({
               ? lines.filter((l) => l.pending && l.category_id === c.id)
               : [];
             return (
-              <li key={c.id} className="w-full border-t border-border">
+              <li key={c.id} data-budget-category-id={c.id} className="w-full border-t border-border">
+                {categoryMode ? <BudgetCategoryEditor category={c}
+                  onRename={(name) => renameCategory(c, name)} onDelete={() => removeCat(c)}
+                  onOver={reorderCategory} onDrop={persistCategoryOrder}
+                /> : null}
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => toggleExpand(c.id)}
+                  onClick={() => {
+                    if (heldCategory.current) { heldCategory.current = false; return; }
+                    if (categoryMode) startEdit(c); else toggleExpand(c.id);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      toggleExpand(c.id);
+                      if (categoryMode) startEdit(c); else toggleExpand(c.id);
                     }
                   }}
                   onTouchStart={(e) => {
                     const t = e.touches[0];
                     if (!t) return;
                     lpStart.current = { x: t.clientX, y: t.clientY };
+                    heldCategory.current = false;
                     lpClear();
                     lpTimer.current = window.setTimeout(() => {
                       lpTimer.current = null;
-                      setDelId((prev) => (prev === c.id ? null : c.id));
+                      heldCategory.current = true;
+                      startEdit(c);
                     }, 500);
                   }}
                   onTouchMove={(e) => {
@@ -532,22 +580,9 @@ export function BudgetView({
                   className={`group w-full cursor-pointer px-4 ${dense ? "py-2" : "py-3"}`}
                 >
                   <div className="flex w-full items-baseline justify-between gap-3 text-left">
-                    <CategoryName name={c.name} over={over} onEnterEdit={() => startEdit(c)} />
-                    <button
-                      type="button"
-                      aria-label={`delete ${c.name}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeCat(c);
-                      }}
-                      className={`shrink-0 font-mono text-[13px] leading-none text-muted transition-opacity hover:opacity-100 focus-visible:opacity-100 ${
-                        delId === c.id ? "opacity-60" : "opacity-0 group-hover:opacity-60"
-                      }`}
-                    >
-                      ×
-                    </button>
+                    {categoryMode ? null : <span className="min-w-0 flex-1 break-words font-sans text-[15px] text-foreground">{c.name}</span>}
                     <span
-                      className={`shrink-0 font-mono text-[12px] ${
+                      className={`min-w-0 font-mono text-[12px] ${
                         over ? "text-accent" : "text-muted"
                       }`}
                     >
@@ -585,14 +620,6 @@ export function BudgetView({
                                 ref={lineEdit.editRef}
                                 className="flex min-h-[34px] w-full items-center gap-2 border-t border-border px-4 py-1"
                               >
-                                <input
-                                  type="date"
-                                  value={lineDraft.ymd}
-                                  onChange={(e) =>
-                                    setLineDraft((p) => ({ ...p, ymd: e.target.value }))
-                                  }
-                                  className="shrink-0 border-0 border-b border-muted bg-transparent font-mono text-[11px] text-foreground outline-none"
-                                />
                                 <input
                                   value={lineDraft.label}
                                   onChange={(e) =>
@@ -722,16 +749,6 @@ export function BudgetView({
                         placeholder="what"
                         className="min-w-0 flex-1 border-0 bg-transparent font-sans text-[14px] text-foreground placeholder:text-muted focus:outline-none"
                       />
-                      <input
-                        type="date"
-                        value={entry.ymd}
-                        onChange={(e) => setEntry((p) => ({ ...p, ymd: e.target.value }))}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") addLine(c.id);
-                        }}
-                        aria-label="date"
-                        className="shrink-0 border-0 bg-transparent font-mono text-[11px] text-muted focus:outline-none"
-                      />
 
                       <button
                         type="button"
@@ -832,28 +849,6 @@ export function BudgetView({
         </ul>
       ) : null}
     </div>
-  );
-}
-
-function CategoryName({
-  name,
-  over,
-  onEnterEdit,
-}: {
-  name: string;
-  over: boolean;
-  onEnterEdit: () => void;
-}) {
-  const gesture = useEditGesture(onEnterEdit);
-  return (
-    <span
-      {...gesture}
-      className={`min-w-0 flex-1 truncate font-sans text-[15px] ${
-        over ? "text-accent" : "text-foreground"
-      }`}
-    >
-      {name}
-    </span>
   );
 }
 

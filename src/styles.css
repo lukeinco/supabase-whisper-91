@@ -38,7 +38,7 @@
   --color-muted-foreground: var(--muted);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--background);
-  --color-destructive: var(--accent);
+  --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--background);
   --color-border: var(--border);
   --color-input: var(--border);
@@ -55,6 +55,7 @@
   --card: #262b33;
   --foreground: #e5e7eb;
   --accent: #ff7a45;
+  --destructive: #ef5350;
   --muted: #949aa5;
   --border: color-mix(in srgb, #949aa5 12%, transparent);
 }
