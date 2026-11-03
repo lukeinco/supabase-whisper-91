@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Budget category management is isolated in BudgetCategoryEditor, while BudgetView owns mutations and ordering; this keeps mobile drag gestures separate from category long-press amount editing.
+- Apply budgetFirstLayout when restoring desktop layouts so saved layouts also place budget first without changing widget sizes.

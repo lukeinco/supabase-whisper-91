@@ -30,11 +30,11 @@ export const WIDGETS: WidgetDef[] = [
 ];
 
 export const DEFAULT_LAYOUT = [
-  { i: "today", x: 0, y: 0, w: 4, h: 6, minW: 3, minH: 4 },
+  { i: "today", x: 0, y: 6, w: 4, h: 6, minW: 3, minH: 4 },
   { i: "to-do", x: 4, y: 0, w: 4, h: 6, minW: 3, minH: 4 },
   { i: "to-buy", x: 8, y: 0, w: 4, h: 6, minW: 3, minH: 4 },
   { i: "routine", x: 0, y: 12, w: 4, h: 6, minW: 3, minH: 4 },
-  { i: "budget", x: 0, y: 6, w: 4, h: 6, minW: 3, minH: 4 },
+  { i: "budget", x: 0, y: 0, w: 4, h: 6, minW: 3, minH: 4 },
   { i: "waiting-on", x: 4, y: 6, w: 4, h: 6, minW: 3, minH: 4 },
   { i: "scratchpad", x: 8, y: 6, w: 4, h: 6, minW: 3, minH: 4 },
   { i: "reminders", x: 4, y: 12, w: 4, h: 6, minW: 3, minH: 4 },

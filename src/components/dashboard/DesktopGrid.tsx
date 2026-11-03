@@ -17,6 +17,7 @@ import { ReviewQueue } from "./ReviewQueue";
 import { useReminderHub } from "./useReminderHub";
 import { ReminderList } from "./ReminderList";
 import { LifeField } from "./LifeField";
+import { budgetFirstLayout } from "@/lib/budget-layout";
 
 export function DesktopGrid({
   secret,
@@ -57,7 +58,7 @@ export function DesktopGrid({
         // Merge in defaults for widgets added after this layout was saved.
         const base = saved && saved.length ? saved : DEFAULT_LAYOUT;
         const missing = DEFAULT_LAYOUT.filter((d) => !base.some((l) => l.i === d.i));
-        setLayout([...base, ...missing]);
+        setLayout(budgetFirstLayout([...base, ...missing]));
         setLoading(false);
       })
       .catch((e: unknown) => {
