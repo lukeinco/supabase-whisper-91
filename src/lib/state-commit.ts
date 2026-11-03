@@ -1,6 +1,6 @@
 // The single write-through committer. Every successful mutation is merged into
 // the ONE cached state object here, which persists it to localStorage and wakes
-// every module. No other code path may write dashboard data.
+// every module. Pending scalar edits and deletes also update this cache in api.ts.
 
 import { commitState, readCache } from "./state-cache";
 import type { DashboardState } from "./api";

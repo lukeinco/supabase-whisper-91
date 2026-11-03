@@ -146,7 +146,8 @@ export function bumpVersion() {
 
 /**
  * THE committer. React state and localStorage move together, always: the cache
- * is written first, then the version bump makes every module re-read it.
+ * memory is written first, then the version bump makes every module re-read it.
+ * Disk persistence is debounced and flushed when the page hides.
  */
 export function commitState(state: DashboardState, source: "cache" | "fetch" | "mutate") {
   writeCache(state);

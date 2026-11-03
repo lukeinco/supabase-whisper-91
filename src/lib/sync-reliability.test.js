@@ -188,4 +188,50 @@ describe("sync reliability, stubbed fetch only", () => {
     expect(normalizeWaiting({ waiting_on: [{ id: "a", resolved_at: "gone" }] })).toEqual([]);
     expect(normalizeReminders({ reminders: [{ id: "a", fire_at: "2026-11-03T00:00:00Z", completed_at: "gone" }] })).toEqual([]);
   });
+
+  test("persistence is debounced 150 ms, flushes on hide, and clear cancels pending writes", async () => {
+    const windowHandlers = {};
+    const documentHandlers = {};
+    const store = new Map();
+    const setItem = mock((key, value) => store.set(key, value));
+    const previousWindow = globalThis.window;
+    const previousDocument = globalThis.document;
+    globalThis.window = {
+      localStorage: { setItem, removeItem: (key) => store.delete(key), getItem: (key) => store.get(key) ?? null },
+      addEventListener: (name, callback) => { windowHandlers[name] = callback; },
+    };
+    globalThis.document = {
+      visibilityState: "visible",
+      addEventListener: (name, callback) => { documentHandlers[name] = callback; },
+    };
+    try {
+      writeCache({ todos: [{ id: "first" }] });
+      writeCache({ todos: [{ id: "latest" }] });
+      expect(readCache().todos).toEqual([{ id: "latest" }]);
+      expect(setItem).not.toHaveBeenCalled();
+      await pause(100);
+      expect(setItem).not.toHaveBeenCalled();
+      await pause(80);
+      expect(setItem).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(store.get("lifedash:state:v3")).todos).toEqual([{ id: "latest" }]);
+      writeCache({ todos: [{ id: "pagehide" }] });
+      windowHandlers.pagehide();
+      expect(JSON.parse(store.get("lifedash:state:v3")).todos).toEqual([{ id: "pagehide" }]);
+      writeCache({ todos: [{ id: "hidden" }] });
+      document.visibilityState = "hidden";
+      documentHandlers.visibilitychange();
+      expect(JSON.parse(store.get("lifedash:state:v3")).todos).toEqual([{ id: "hidden" }]);
+      writeCache({ todos: [{ id: "cancelled" }] });
+      clearCache();
+      await pause(180);
+      expect(store.has("lifedash:state:v3")).toBe(false);
+      expect(readCache()).toBe(null);
+    } finally {
+      clearCache();
+      if (previousWindow === undefined) delete globalThis.window;
+      else globalThis.window = previousWindow;
+      if (previousDocument === undefined) delete globalThis.document;
+      else globalThis.document = previousDocument;
+    }
+  });
 });
