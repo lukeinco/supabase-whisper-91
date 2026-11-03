@@ -28,6 +28,30 @@ const ENTITY_KEYS = [
 
 let memory: DashboardState | null = null;
 let loaded = false;
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingPersist = false;
+let lifecycleBound = false;
+
+function flushCache() {
+  if (persistTimer !== null) clearTimeout(persistTimer);
+  persistTimer = null;
+  if (!pendingPersist) return;
+  pendingPersist = false;
+  try { storage()?.setItem(KEY, JSON.stringify(memory)); } catch { /* best-effort */ }
+}
+
+function schedulePersist() {
+  pendingPersist = true;
+  if (persistTimer !== null) clearTimeout(persistTimer);
+  persistTimer = setTimeout(flushCache, 150);
+  if (!lifecycleBound && typeof window !== "undefined") {
+    lifecycleBound = true;
+    window.addEventListener("pagehide", flushCache);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flushCache();
+    });
+  }
+}
 
 function storage(): Storage | null {
   try {
@@ -84,14 +108,13 @@ export function readCache(): DashboardState | null {
 export function writeCache(state: DashboardState) {
   memory = state;
   loaded = true;
-  try {
-    storage()?.setItem(KEY, JSON.stringify(state));
-  } catch {
-    /* quota or private mode — cache is best-effort */
-  }
+  schedulePersist();
 }
 
 export function clearCache() {
+  if (persistTimer !== null) clearTimeout(persistTimer);
+  persistTimer = null;
+  pendingPersist = false;
   memory = null;
   loaded = true;
   try {
