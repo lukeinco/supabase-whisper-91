@@ -29,14 +29,14 @@ export function normalizeFolders(state: unknown): Folder[] {
   const raw = (state as Raw | null)?.["folders"];
   const list = Array.isArray(raw) ? raw : [];
   const folders = list
-    .map((f) => {
+    .map((f, i) => {
       const r = f as Raw;
       const id = str(r["id"]);
-      if (!id) return null;
+      if (!id || r["deleted_at"]) return null;
       return {
         id,
         name: str(r["name"]) ?? "folder",
-        sort_order: typeof r["sort_order"] === "number" ? (r["sort_order"] as number) : 0,
+        sort_order: typeof r["position"] === "number" ? r["position"] : typeof r["sort_order"] === "number" ? r["sort_order"] : i,
       } satisfies Folder;
     })
     .filter((f): f is Folder => f !== null)
@@ -59,7 +59,7 @@ export function normalizeTodos(state: unknown): Todo[] {
         title: str(r["title"]) ?? str(r["text"]) ?? "",
         folder_id: str(r["folder_id"]),
         due_ymd: toDenverYMD(str(r["due_at"]) ?? str(r["due_date"])),
-        position: typeof r["position"] === "number" ? (r["position"] as number) : i,
+        position: typeof r["position"] === "number" ? r["position"] : typeof r["sort_order"] === "number" ? r["sort_order"] : i,
         recur_rule: str(r["recur_rule"]),
         deferred_count:
           typeof r["deferred_count"] === "number" ? (r["deferred_count"] as number) : 0,

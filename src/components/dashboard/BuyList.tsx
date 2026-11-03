@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { resultId, mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { reconcileOptimistic } from "@/lib/optimistic";
+import { readCache } from "@/lib/state-cache";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction, focusCapture } from "./primitives";
@@ -32,9 +33,9 @@ type Pending = {
 };
 
 export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
-  const [items, setItems] = useState<BuyItem[] | null>(null);
-  const [categories, setCategories] = useState<BuyCategory[]>([]);
-  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
+  const [items, setItems] = useState<BuyItem[] | null>(() => { const cached = readCache(); return cached ? normalizeBuyItems(cached) : null; });
+  const [categories, setCategories] = useState<BuyCategory[]>(() => normalizeBuyCategories(readCache()));
+  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>(() => normalizeBudgetCategories(readCache()));
   const edit = useEditing();
   const catEdit = useEditing();
   const [addingCat, setAddingCat] = useState(false);
@@ -350,8 +351,9 @@ export function BuyList({ secret, dense = false, onUnauthorized }: Props) {
                   <button
                     type="button"
                     aria-label="archive category"
+                    disabled={category.id.startsWith("tmp-")}
                     onClick={() => removeCategory(category)}
-                    className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+                    className="shrink-0 font-mono text-[13px] text-muted opacity-40 disabled:cursor-default disabled:opacity-20"
                   >
                     ×
                   </button>
@@ -583,8 +585,9 @@ function BuyRow({
           <button
             type="button"
             aria-label="delete"
+            disabled={b.id.startsWith("tmp-")}
             onClick={onRemove}
-            className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+            className="shrink-0 font-mono text-[13px] text-muted opacity-40 disabled:cursor-default disabled:opacity-20"
           >
             ×
           </button>

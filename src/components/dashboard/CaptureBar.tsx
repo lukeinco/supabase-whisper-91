@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { getState, mutate } from "@/lib/api";
+import { getState, mutate, resultId } from "@/lib/api";
 import { denverISO } from "@/lib/denver";
 import { normalizeBuyCategories, type BuyCategory } from "@/lib/buy";
 import { EventComposer } from "./EventComposer";
@@ -168,7 +168,7 @@ export function CaptureBar({ secret }: { secret?: string | null }) {
     let id: string | null = null;
     try {
       const res = await mutate<{ id?: string } | null>(secret, entity, "created", payload);
-      id = res?.id ?? null;
+      id = resultId(res);
     } catch {
       /* offline / function not deployed — still show where it landed */
     }

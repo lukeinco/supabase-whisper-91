@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { resultId, mutate, UnauthorizedError } from "@/lib/api";
 import { reconcileOptimistic } from "@/lib/optimistic";
+import { readCache } from "@/lib/state-cache";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
@@ -40,8 +41,8 @@ function dateToYMD(d: Date): string {
 
 export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
   const today = useDenverToday();
-  const [todos, setTodos] = useState<Todo[] | null>(null);
-  const [folders, setFolders] = useState<Folder[]>([UNFILED]);
+  const [todos, setTodos] = useState<Todo[] | null>(() => { const cached = readCache(); return cached ? normalizeTodos(cached) : null; });
+  const [folders, setFolders] = useState<Folder[]>(() => normalizeFolders(readCache()));
   const edit = useEditing();
   const { sort, toggle } = useSort();
   const folderEdit = useEditing();
@@ -98,7 +99,7 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       folder: f,
       items: applySort(
         rest
-          .filter((t) => (t.folder_id ?? UNFILED.id) === f.id)
+          .filter((t) => (folders.some((folder) => folder.id === t.folder_id) ? t.folder_id : UNFILED.id) === f.id)
           .sort((a, b) => a.position - b.position),
         sort,
         { date: (t) => t.due_ymd },
@@ -141,19 +142,8 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
       return;
     }
     done.mark(t, (todos ?? []).findIndex((x) => x.id === t.id));
-    send("completed", { id: t.id });
-    if (t.recur_rule) {
-      const base = t.due_ymd ?? today;
-      const next = nextOccurrence(t.recur_rule, base);
-      if (next) {
-        send("created", {
-          title: t.title,
-          folder_id: t.folder_id,
-          due_at: ymdToISO(next),
-          recur_rule: t.recur_rule,
-        });
-      }
-    }
+    const next = t.recur_rule ? nextOccurrence(t.recur_rule, t.due_ymd ?? today) : null;
+    send("completed", { id: t.id, ...(next ? { next_due_date: next } : {}) });
     withUndo("completed", () => {
       done.unmark(t.id);
       send("uncompleted", { id: t.id });
@@ -267,9 +257,6 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
 
   function removeFolder(f: Folder) {
     setFolders((prev) => prev.filter((x) => x.id !== f.id));
-    setTodos((prev) =>
-      (prev ?? []).map((x) => (x.folder_id === f.id ? { ...x, folder_id: null } : x)),
-    );
     sendFolder("deleted", { id: f.id });
     withUndo("folder deleted", () => {
       setFolders((prev) => [...prev.filter((x) => x.id !== UNFILED.id), f, UNFILED]);
@@ -432,8 +419,9 @@ export function TodoList({ secret, dense = false, onUnauthorized }: Props) {
                     <button
                       type="button"
                       aria-label="delete folder"
+                      disabled={folder.id.startsWith("tmp-")}
                       onClick={() => removeFolder(folder)}
-                      className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+                      className="shrink-0 font-mono text-[13px] text-muted opacity-40 disabled:cursor-default disabled:opacity-20"
                     >
                       ×
                     </button>
@@ -596,7 +584,7 @@ function TodoRow({
             type="button"
             className="shrink-0 rounded-[4px] border border-muted/30 px-[5px] py-px font-mono text-[10px] text-muted"
           >
-            {folders.find((f) => f.id === (t.folder_id ?? UNFILED.id))?.name ?? "file"}
+            {folders.find((f) => f.id === (t.folder_id ?? UNFILED.id))?.name ?? UNFILED.name}
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-auto min-w-[120px] p-1">
@@ -636,8 +624,9 @@ function TodoRow({
       <button
         type="button"
         aria-label="delete"
+        disabled={t.id.startsWith("tmp-")}
         onClick={onRemove}
-        className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+        className="shrink-0 font-mono text-[13px] text-muted opacity-40 disabled:cursor-default disabled:opacity-20"
       >
         ×
       </button>

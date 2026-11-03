@@ -35,7 +35,7 @@ export function reminderTimeLabel(iso: string): string {
 }
 
 function cleared(r: Raw): boolean {
-  return Boolean(r["deleted_at"] || r["cleared_at"] || r["dismissed_at"] || r["cleared"]);
+  return Boolean(r["deleted_at"] || r["cleared_at"] || r["dismissed_at"] || r["completed_at"] || r["resolved_at"] || r["active"] === false || r["cleared"]);
 }
 
 export function normalizeReminders(state: unknown): Reminder[] {
