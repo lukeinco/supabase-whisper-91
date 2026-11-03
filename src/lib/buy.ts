@@ -71,7 +71,7 @@ export function normalizeBuyItems(state: unknown): BuyItem[] {
         id,
         title: str(r["title"]) ?? str(r["text"]) ?? "",
         category_id: str(r["category_id"]) ?? str(r["buy_category_id"]),
-        position: typeof r["position"] === "number" ? (r["position"] as number) : i,
+        position: typeof r["position"] === "number" ? r["position"] : typeof r["sort_order"] === "number" ? r["sort_order"] : i,
         price: num(r["estimated_amount"] ?? r["price"] ?? r["amount"]),
         created_at: str(r["created_at"] ?? r["inserted_at"]),
       } satisfies BuyItem;
@@ -88,7 +88,7 @@ export function normalizeBudgetCategories(state: unknown): BudgetCategory[] {
     .map((c) => {
       const r = c as Raw;
       const id = str(r["id"]);
-      if (!id) return null;
+      if (!id || r["archived_at"] || r["deleted_at"] || r["active"] === false) return null;
       return { id, name: str(r["name"]) ?? "" } satisfies BudgetCategory;
     })
     .filter((c): c is BudgetCategory => c !== null);

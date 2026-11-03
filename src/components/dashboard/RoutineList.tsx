@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Square, SquareCheck, X } from "lucide-react";
 import { resultId, mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
+import { readCache } from "@/lib/state-cache";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { EmptyAction } from "./primitives";
 import { EditControls, editFieldClass, useEditGesture, useEditing } from "./edit-mode";
@@ -93,8 +94,8 @@ function draftToFields(d: Draft) {
 
 export function RoutineList({ secret, dense = false, dueTodayOnly = false, onUnauthorized }: Props) {
   const today = useDenverToday();
-  const [routines, setRoutines] = useState<Routine[] | null>(null);
-  const [ticks, setTicks] = useState<RoutineTicks>({});
+  const [routines, setRoutines] = useState<Routine[] | null>(() => { const cached = readCache(); return cached ? normalizeRoutines(cached) : null; });
+  const [ticks, setTicks] = useState<RoutineTicks>(() => normalizeRoutineTicks(readCache()));
   const [adding, setAdding] = useState(false);
   const edit = useEditing();
 

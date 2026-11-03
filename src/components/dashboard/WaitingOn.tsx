@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Square } from "lucide-react";
 import { resultId, mutate, UnauthorizedError, type DashboardState } from "@/lib/api";
 import { reconcileOptimistic } from "@/lib/optimistic";
+import { readCache } from "@/lib/state-cache";
 import { useDashboardSync } from "@/lib/use-dashboard-sync";
 import { useVisitCompleted } from "@/lib/visit-completed";
 import { EmptyAction } from "./primitives";
@@ -18,7 +19,7 @@ type Props = {
 
 export function WaitingOn({ secret, dense = false, onUnauthorized }: Props) {
   const today = useDenverToday();
-  const [items, setItems] = useState<WaitingItem[] | null>(null);
+  const [items, setItems] = useState<WaitingItem[] | null>(() => { const cached = readCache(); return cached ? normalizeWaiting(cached) : null; });
   const [adding, setAdding] = useState(false);
   const [what, setWhat] = useState("");
   const [who, setWho] = useState("");
@@ -262,8 +263,9 @@ function WaitingRow({
       <button
         type="button"
         aria-label="delete"
+        disabled={w.id.startsWith("tmp-")}
         onClick={onRemove}
-        className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+        className="shrink-0 font-mono text-[13px] text-muted opacity-40 disabled:cursor-default disabled:opacity-20"
       >
         ×
       </button>

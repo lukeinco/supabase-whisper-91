@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getState, mutate, resultId, UnauthorizedError } from "@/lib/api";
+import { useStateVersion } from "@/lib/state-cache";
 import { reconcileOptimistic } from "@/lib/optimistic";
 import {
   dueReminderCards,
@@ -33,6 +34,7 @@ const TICK_MS = 30_000;
  * Drives the next-reminder card, in-page alert toasts, and the review queue.
  */
 export function useReminderHub(secret: string, onUnauthorized?: () => void): ReminderHub {
+  const dataVersion = useStateVersion();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [cards, setCards] = useState<ReviewCard[]>([]);
   const [resolved, setResolved] = useState<Set<string>>(() => new Set());
@@ -60,6 +62,10 @@ export function useReminderHub(secret: string, onUnauthorized?: () => void): Rem
     }, TICK_MS);
     return () => clearInterval(id);
   }, [load]);
+
+  useEffect(() => {
+    if (dataVersion > 0) load();
+  }, [dataVersion, load]);
 
   const send = useCallback(
     (entity: string, action: string, id: string, extra?: Record<string, unknown>) => {

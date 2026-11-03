@@ -59,7 +59,7 @@ export function normalizeBudgetCats(state: unknown, kind: BudgetKind = "expense"
     .map((c, i) => {
       const r = c as Raw;
       const id = str(r["id"]);
-      if (!id || r["deleted_at"]) return null;
+      if (!id || r["deleted_at"] || r["archived_at"] || r["active"] === false) return null;
       const k: BudgetKind = str(r["kind"]) === "income" ? "income" : "expense";
       if (k !== kind) return null;
       return {
@@ -67,7 +67,7 @@ export function normalizeBudgetCats(state: unknown, kind: BudgetKind = "expense"
         name: str(r["name"]) ?? "",
         monthly_budget: num(r["monthly_budget"] ?? r["budget"] ?? r["amount"]),
         spread: r["spread"] !== false,
-        position: typeof r["position"] === "number" ? (r["position"] as number) : i,
+        position: typeof r["position"] === "number" ? r["position"] : typeof r["sort_order"] === "number" ? r["sort_order"] : i,
         kind: k,
       } satisfies BudgetCat;
     })

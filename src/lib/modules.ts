@@ -78,14 +78,14 @@ export function normalizeRoutines(state: unknown): Routine[] {
     .map((r, i) => {
       const o = r as Raw;
       const id = str(o["id"]);
-      if (!id || o["deleted_at"]) return null;
+      if (!id || o["deleted_at"] || o["active"] === false) return null;
       const start = (str(o["start_date"]) ?? "").slice(0, 10) || null;
       const tod = str(o["time_of_day"]) as TimeOfDay | null;
       const kind = str(o["repeat_kind"]) as RepeatKind | null;
       return {
         id,
         title: str(o["title"]) ?? str(o["name"]) ?? "",
-        position: typeof o["position"] === "number" ? (o["position"] as number) : i,
+        position: typeof o["position"] === "number" ? o["position"] : typeof o["sort_order"] === "number" ? o["sort_order"] : i,
         start_date: start,
         time_of_day: tod && TIME_OF_DAY.includes(tod) ? tod : "morning",
         repeat_kind: kind && REPEAT_KINDS.includes(kind) ? kind : "daily",
@@ -131,7 +131,7 @@ export function normalizeWaiting(state: unknown): WaitingItem[] {
     .map((w) => {
       const o = w as Raw;
       const id = str(o["id"]);
-      if (!id || o["deleted_at"] || o["completed_at"]) return null;
+      if (!id || o["deleted_at"] || o["completed_at"] || o["resolved_at"]) return null;
       return {
         id,
         title: str(o["title"]) ?? str(o["what"]) ?? "",

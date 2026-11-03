@@ -4,7 +4,7 @@ import { Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BudgetCategoryEditor } from "./BudgetCategoryEditor";
 import { getState, mutate, refreshState, resultId, UnauthorizedError } from "@/lib/api";
-import { useStateVersion } from "@/lib/state-cache";
+import { readCache, useStateVersion } from "@/lib/state-cache";
 import { reconcileOptimistic } from "@/lib/optimistic";
 import { useDenverToday } from "@/lib/denver";
 import {
@@ -60,9 +60,9 @@ export function BudgetView({
   const today = useDenverToday();
   const month = monthInfo(today);
 
-  const [cats, setCats] = useState<BudgetCat[] | null>(null);
-  const [lines, setLines] = useState<BudgetLine[]>([]);
-  const [cards, setCards] = useState<QueueCard[]>([]);
+  const [cats, setCats] = useState<BudgetCat[] | null>(() => { const cached = readCache(); return cached ? normalizeBudgetCats(cached, kind) : null; });
+  const [lines, setLines] = useState<BudgetLine[]>(() => normalizeBudgetLines(readCache()));
+  const [cards, setCards] = useState<QueueCard[]>(() => income ? [] : normalizeQueueCards(readCache(), "budget"));
   const edit = useEditing();
   const editing = edit.editing;
   const [draft, setDraft] = useState<Draft>({ name: "", amount: "", spread: true });
@@ -214,9 +214,9 @@ export function BudgetView({
 
   function persistCategoryOrder() {
     const ordered = catsRef.current;
-    void Promise.all(ordered.filter((c) => !c.id.startsWith("tmp-")).map((c) =>
-      mutate(secret, "budget_category", "edited", { id: c.id, position: c.position }),
-    )).catch(() => { toast("could not save category order"); load(); });
+    void mutate(secret, "budget_category", "edited", {
+      reorder: ordered.filter((c) => !c.id.startsWith("tmp-")).map((c) => ({ id: c.id, position: c.position })),
+    }).catch(() => { toast("could not save category order"); load(); });
   }
 
   function toggleExpand(id: string) {

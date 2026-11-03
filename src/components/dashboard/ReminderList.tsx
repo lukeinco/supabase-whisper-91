@@ -171,8 +171,9 @@ function ReminderRow({
           <button
             type="button"
             aria-label="dismiss reminder"
+            disabled={r.id.startsWith("tmp-")}
             onClick={onDismiss}
-            className="shrink-0 font-mono text-[13px] text-muted opacity-40"
+            className="shrink-0 font-mono text-[13px] text-muted opacity-40 disabled:cursor-default disabled:opacity-20"
           >
             ×
           </button>

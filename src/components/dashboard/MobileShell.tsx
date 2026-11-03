@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { refreshState } from "@/lib/api";
 import { resetVisit } from "@/lib/visit-completed";
 import { DashboardHeader } from "./DashboardHeader";
@@ -60,6 +60,17 @@ export function MobileShell({ secret }: { secret: string }) {
   const pulling = useRef(false);
   const offline = useOffline();
 
+
+  useEffect(() => {
+    const onFocus = () => void refreshState(secret, { force: false });
+    const onVisible = () => { if (document.visibilityState === "visible") onFocus(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [secret]);
 
   useShortcuts({
     onSearch: useCallback(() => setOverlay("search"), []),

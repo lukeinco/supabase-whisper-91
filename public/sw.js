@@ -4,7 +4,7 @@ importScripts("/push-sw.js");
    Function (/functions/v1/*) or any non-GET request goes straight to the
    network and is never stored. */
 
-const CACHE = "lifedash-shell-v1";
+const CACHE = "lifedash-shell-v2";
 const SHELL = ["/", "/favicon.ico", "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -38,14 +38,24 @@ self.addEventListener("fetch", (event) => {
 
   // HTML: network first, cache only as an offline fallback.
   if (req.mode === "navigate") {
+    const network = fetch(req).then(async (res) => {
+      if (res.ok) {
+        const cache = await caches.open(CACHE);
+        await cache.put("/", res.clone());
+      }
+      return res;
+    });
+    event.waitUntil(network.then(() => undefined).catch(() => undefined));
     event.respondWith(
-      fetch(req)
-        .then((res) => {
-          const copy = res.clone();
-          void caches.open(CACHE).then((c) => c.put("/", copy));
-          return res;
-        })
-        .catch(() => caches.match("/").then((r) => r ?? Response.error())),
+      (async () => {
+        let timer;
+        const timeout = new Promise((resolve) => { timer = setTimeout(() => resolve(null), 1500); });
+        const first = await Promise.race([network.catch(() => null), timeout]);
+        clearTimeout(timer);
+        if (first) return first;
+        const cached = await caches.match("/");
+        return cached ?? network.catch(() => Response.error());
+      })(),
     );
     return;
   }

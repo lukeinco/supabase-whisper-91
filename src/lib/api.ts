@@ -13,7 +13,7 @@ import {
   setOffline,
   writeCache,
 } from "./state-cache";
-import { commitMutation } from "./state-commit";
+import { cleanMutationPayload, commitMutation, resolveKey } from "./state-commit";
 
 
 const SUPABASE_URL = (
@@ -38,6 +38,17 @@ export class UnauthorizedError extends Error {
  * ----------------------------------------------------------------------- */
 
 let localVersion = 0;
+let writesInFlight = 0;
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleCleanRefresh(secret: string) {
+  if (refreshTimer !== null) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null;
+    if (writesInFlight > 0) scheduleCleanRefresh(secret);
+    else void refreshState(secret, { force: true });
+  }, 800);
+}
 
 export function localStateVersion() {
   return localVersion;
@@ -120,8 +131,9 @@ function fetchState(secret: string): Promise<DashboardState> {
     .then((state) => {
       fetchedOnce = true;
       setOffline(false);
-      if (localVersion !== launchedAt || seq <= appliedFetchSeq) {
+      if (localVersion !== launchedAt || writesInFlight !== 0 || seq <= appliedFetchSeq) {
         // Stale: local data is newer than this snapshot. Discard it entirely.
+        scheduleCleanRefresh(secret);
         return readCache();
       }
       appliedFetchSeq = seq;
@@ -214,17 +226,52 @@ export function mutate<T = unknown>(
   action: string,
   payload: unknown = {},
 ): Promise<T> {
+  const payloadRow = (payload ?? {}) as Record<string, unknown>;
+  const id = payloadRow["id"];
+  if (action === "deleted" && isTempId(id)) {
+    return Promise.reject(new Error("still saving"));
+  }
+  writesInFlight += 1;
+  bumpLocalVersion();
+  const base = (readCache() ?? {}) as Record<string, unknown>;
+  const cacheKey = resolveKey(base, entity);
+  const list = cacheKey && Array.isArray(base[cacheKey])
+    ? base[cacheKey] as Record<string, unknown>[] : [];
+  const priorIndex = list.findIndex((item) => item["id"] === id);
+  const priorRow = priorIndex >= 0 ? list[priorIndex] : undefined;
+  const optimistic = typeof id === "string" && !isTempId(id) && !Array.isArray(payloadRow["reorder"])
+    && (action === "deleted" || action === "edited");
+  if (optimistic && cacheKey && priorRow) {
+    const scalar = Object.fromEntries(Object.entries(cleanMutationPayload(payloadRow))
+      .filter(([, value]) => value === null || ["string", "number", "boolean"].includes(typeof value)));
+    commitState({ ...base, [cacheKey]: action === "deleted"
+      ? list.filter((item) => item["id"] !== id)
+      : list.map((item) => item["id"] === id ? { ...item, ...scalar } : item) }, "mutate");
+  }
   const key = chainKey(entity, payload);
   const prev = chains.get(key) ?? Promise.resolve();
   const run = prev
     .catch(() => undefined)
-    .then(() => send<T>(secret, entity, action, payload));
-  chains.set(
-    key,
-    run.catch(() => undefined),
-  );
-  void run.catch(() => undefined).finally(() => {
-    if (chains.get(key) === undefined) chains.delete(key);
+    .then(() => send<T>(secret, entity, action, payload))
+    .catch((error: unknown) => {
+      if (optimistic && cacheKey && priorRow && !(error instanceof UnauthorizedError)) {
+        const current = (readCache() ?? {}) as Record<string, unknown>;
+        const rows = Array.isArray(current[cacheKey]) ? [...current[cacheKey] as Record<string, unknown>[]] : [];
+        const index = rows.findIndex((item) => item["id"] === id);
+        if (index >= 0) rows[index] = priorRow;
+        else rows.splice(Math.min(priorIndex, rows.length), 0, priorRow);
+        commitState({ ...current, [cacheKey]: rows }, "mutate");
+      }
+      throw error;
+    })
+    .finally(() => {
+      writesInFlight -= 1;
+      bumpLocalVersion();
+    });
+  const tail = run.catch(() => undefined);
+  chains.set(key, tail);
+  void tail.finally(() => {
+    if (chains.get(key) === tail) chains.delete(key);
   });
   return run;
 }
@@ -240,7 +287,6 @@ async function send<T>(
     // Never let an optimistic id reach the database.
     throw new Error("still saving — try again in a moment");
   }
-  bumpLocalVersion();
   try {
     const res = await call<T>("mutate", secret, {
       method: "POST",
